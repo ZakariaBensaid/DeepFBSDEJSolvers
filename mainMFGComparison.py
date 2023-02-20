@@ -108,7 +108,7 @@ dW0_arr = np.sqrt(mathModel.dt)*tf.random.normal([nbSimul, mathModel.N+1])
 dW_arr = np.sqrt(mathModel.dt)*tf.random.normal([nbSimul, mathModel.N+1])
 Q = mathModel.QAver*tf.exp(-0.5*mathModel.sig0*mathModel.sig0*np.arange(mathModel.N+1)*mathModel.dt + mathModel.sig0*dW0_arr)
 if jumpModel == 'stochastic':
-    lam = jumpFactor*((Q-mathModel.QAver[0])/mathModel.QAver[0])**2
+    lam = jumpFactor*mathModel0.jumpFactor*(Q)**2
 else:
     lam = jumpFactor*tf.ones([nbSimul])
 # number of jump in dt
