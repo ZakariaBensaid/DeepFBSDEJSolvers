@@ -13,16 +13,16 @@ import sys
 
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 parser = argparse.ArgumentParser()
-parser.add_argument('--nbNeuron_hat', type=int, default=15)
-parser.add_argument('--nbNeuron', type=int, default=20)
+parser.add_argument('--nbNeuron_hat', type=int, default=20)
+parser.add_argument('--nbNeuron', type=int, default=22)
 parser.add_argument('--nbLayer_hat', type=int, default=2)
 parser.add_argument('--nbLayer', type=int, default=2)
 parser.add_argument('--nEpochExt', type=int, default=100)
-parser.add_argument('--nEpoch', type=int, default=500)
-parser.add_argument('--batchSize',  type=int, default=300)
+parser.add_argument('--nEpoch', type=int, default=200)
+parser.add_argument('--batchSize',  type=int, default=128)
 parser.add_argument('--rafCoef',  type=int, default=1)
 parser.add_argument('--jumpFac',type=float, default =2.16)
-parser.add_argument('--nbDays',type=int, default =1)
+parser.add_argument('--nbDays',type=int, default =2)
 parser.add_argument('--lRateY0',type=float, default =0.001)
 parser.add_argument('--lRateLoc',type=float, default =0.00015)
 parser.add_argument('--lRateReg',type=float, default =0.0001)
@@ -30,8 +30,8 @@ parser.add_argument('--couplage', type= str, default = 'ON')
 parser.add_argument('--jumpModel', type= str, default = 'stochastic')
 parser.add_argument('--activation_hat',  type= str, default="tanh")
 parser.add_argument('--activation',  type= str, default="tanh")
-parser.add_argument('--coefOsterlee', type= float, default = 1)
-parser.add_argument('--nbSimulation', type= int, default = 1)
+parser.add_argument('--coefOsterlee', type= float, default = 100)
+parser.add_argument('--nbSimulation', type= int, default = 10**5)
     
 args = parser.parse_args()
 print("Args ", args)
@@ -100,7 +100,7 @@ sig, sig0, theta, h0, h1, h2, A, C, K, pi, p0, p1, f0, f1, R0, S0, alphaTarget =
 
 # mathematical model for hY
 ###########################
-mathModel = ModelCoupledFBSDE( T , QAver,   R0,  jumpFactor, A, K, pi, p0, p1, f0, f1, theta,C, S0, h1, h2,sig0, sig, alphaTarget, jumpModel)
+mathModel = ModelCoupledFBSDE( T , QAver,   R0,  jumpFactor, A, K, pi, p0, p1, f0, f1, theta,C, S0, h1, h2,sig0, sig, alphaTarget, jumpModel, 1)
 
 #Fixing the trajectory 
 ###########################
@@ -128,8 +128,6 @@ elif activation == 'relu':
 
 #style for plots
 style.use('ggplot')
-#Mathematical models
-mathModel = ModelCoupledFBSDE(T, QAver, R0,  jumpFactor, A, K, pi, p0, p1, f0, f1, theta,C, S0, h1, h2,sig0, sig, alphaTarget, jumpModel, 1)
 # Storing all methods
 ############################ 
 listKeras = []
