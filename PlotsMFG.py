@@ -70,8 +70,8 @@ class MFGSolutionsFixedTrajectory:
                 #next values
                 tensorhY, tensorY =  tensorhYNext, tensorYNext
         else :
-            tensorhY, = self.kerasModel.model_hat(self.mathModel.getProjectedStates())
-            tensorY, = self.kerasModel.model(self.mathModel.getAllStates())
+            tensorhY = self.kerasModel.model_hat(self.mathModel.getProjectedStates())[0]
+            tensorY = self.kerasModel.model(self.mathModel.getAllStates())[0]
             for iStep in range(self.mathModel.N+1):
                 self.Q[:,iStep], self.S[:,iStep], self.hQ[:,iStep], self.hS[:,iStep], self.R[:,iStep] \
                     = [x.numpy() for x in self.mathModel.getAllStates()[1:]]
