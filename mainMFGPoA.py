@@ -123,7 +123,7 @@ dW_arrPlayer1 = np.sqrt(mathModel0.dt)*tf.random.normal([nbSimul, mathModel0.N+1
 dW_arrPlayer2 = np.sqrt(mathModel0.dt)*tf.random.normal([nbSimul, mathModel0.N+1])
 Q = mathModel0.QAver*tf.exp(-0.5*mathModel0.sig0*mathModel0.sig0*np.arange(mathModel0.N+1)*mathModel0.dt + mathModel0.sig0*dW0_arr)
 if jumpModel == 'stochastic':
-    lam = jumpFactor*((Q-mathModel0.QAver[0])/mathModel0.QAver[0])**2
+    lam = jumpFactor*(Q)**2
 else:
     lam = jumpFactor*tf.ones([nbSimul, mathModel0.N+1])
 # number of jump in dt
