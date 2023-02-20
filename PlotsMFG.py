@@ -41,7 +41,7 @@ class MFGSolutionsFixedTrajectory:
         self.S = np.zeros((nbSimulations, self.mathModel.N+1))
         self.alpha_hat = np.zeros((nbSimulations, self.mathModel.N+1))
         self.alpha = np.zeros((nbSimulations, self.mathModel.N+1))
-        if self.method not in ['SumMultiStepReg', 'SumLocalReg']:
+        if self.method in ['Global']:
             tensorhY = self.kerasModel.model_hat.Y0_hat
             tensorY = self.kerasModel.model.Y0
             for iStep in range(self.mathModel.N+1):
