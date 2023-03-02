@@ -97,9 +97,9 @@ for method in ['Global', 'SumMultiStep', 'SumLocal', 'SumLocalReg', 'SumMultiSte
   if method in ['SumMultiStepReg', 'SumLocalReg']:
       kerasModel = Net(method, 1, layerSize, activation)
   elif method in ['SumMultiStep', 'SumLocal', 'Osterlee']:
-      kerasModel = Net(method, 3, layerSize, activation)
+      kerasModel = Net(method, 4, layerSize, activation)
   else:
-      kerasModel = Net(method, 2, layerSize, activation)
+      kerasModel = Net(method, 3, layerSize, activation)
 
   # solver
   #########################

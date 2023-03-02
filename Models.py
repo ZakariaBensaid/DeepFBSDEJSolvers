@@ -178,15 +178,25 @@ class MertonJumpModel:
 
     
     #Go to next step
-    def oneStepFrom(self, dW, dN, gaussJ):
-        self.expX = self.expX*tf.exp((self.r - 0.5*self.sig*self.sig - self.lam*(tf.exp(self.muJ  + self.sigJ*self.sigJ*0.5) - 1))*self.dt + self.sig*dW + tf.where(dN>0, gaussJ, 0)) 
+    def oneStepFrom(self, dW, gaussJ):
+        self.expX = self.expX*tf.exp((self.r - 0.5*self.sig*self.sig - self.lam*(tf.exp(self.muJ  + self.sigJ*self.sigJ*0.5) - 1))*self.dt + self.sig*dW + gaussJ) 
         self.X = self.x0*self.expX
         self.iStep += 1
     
     #jumps
-    def dN(self):
+    '''def jumps(self):
         lam = self.lam*tf.ones([self.batchSize])
-        return tf.random.poisson( [1], lam*self.dt)[0] , self.muJ*lam*self.dt
+        dN = tf.random.poisson([1], lam*self.dt, dtype = tf.float32)[0]
+        maxNbJumps = tf.cast(tf.reduce_max(dN), dtype = tf.int64)
+        newdN = tf.sequence_mask(dN, maxNbJumps, dtype = tf.float32)
+        gaussJ = tf.reduce_sum(newdN*tf.random.normal([self.batchSize, maxNbJumps], self.muJ, self.sigJ), axis = 1) 
+        return dN, gaussJ'''
+
+    def jumps(self):
+        lam = self.lam*tf.ones([self.batchSize])
+        dN = tf.random.poisson([1], lam*self.dt, dtype = tf.float32)[0]
+        gaussJ = dN*self.muJ + self.sigJ*tf.sqrt(dN)*tf.random.normal([self.batchSize], 0, 1)
+        return dN, gaussJ
 
     #Driver
     def f(self, Y):
@@ -197,5 +207,5 @@ class MertonJumpModel:
         return tf.maximum(X-self.K, 0)
 
     #Get states variables to inject in the nn
-    def getStates(self):
-        return self.iStep*self.dt, self.X, self.g(self.X)
+    def getStates(self, dN, gaussJ):
+        return self.iStep*self.dt, self.X, self.g(self.X), gaussJ, dN
