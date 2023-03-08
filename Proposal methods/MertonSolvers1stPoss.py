@@ -15,7 +15,7 @@ class SolverBase:
         self.lRate= lRate
 
     
-class SolverMultiStepFBSDE(SolverBase):
+cclass SolverMultiStepFBSDE(SolverBase):
     def __init__(self, mathModel, modelKeras, lRate):
         super().__init__(mathModel,  modelKeras, lRate)
 
@@ -34,12 +34,13 @@ class SolverMultiStepFBSDE(SolverBase):
                 dW =  np.sqrt(self.mathModel.dt)*gaussian 
                 # Adjoint variables 
                 Z = self.modelKeras.modelZ(self.mathModel.getStatesZ())
-                YList = tf.stack([self.modelKeras.model(self.mathModel.getStatesU(l)) for l in range(self.mathModel.maxJumps)], axis = 1)
+                YListPlus = tf.stack([self.modelKeras.model(self.mathModel.getStatesU(l)) for l in range(self.mathModel.maxJumps)], axis = 1)
+                YListMinus = tf.stack([tf.zeros([1,nbSimul]), *[self.modelKeras.model(self.mathModel.getStatesU(l-1)) for l in range(1, self.mathModel.maxJumps)]], axis = 1)
                 # target
-                toAdd = - self.mathModel.dt*self.mathModel.f(YList[:,0]) + Z*dW + tf.reduce_sum(YList, axis = 1) - tf.reduce_sum(YList[:,:-1], axis = 1)\
-                 - tf.reduce_mean(tf.reduce_sum(YList, axis = 1) - tf.reduce_sum(YList[:,:-1] , axis = 1))
+                toAdd = - self.mathModel.dt*self.mathModel.f(YListPlus[:,0]) + Z*dW + tf.reduce_sum(YListPlus, axis = 1) - tf.reduce_sum(YListMinus, axis = 1)\
+                 - tf.reduce_mean(tf.reduce_sum(YListPlus, axis = 1) - tf.reduce_sum(YListMinus , axis = 1))
                 #update list and error
-                listOfForward.append(YList[:,0])
+                listOfForward.append(YListPlus[:,0])
                 #forward
                 for i in range(len(listOfForward)):
                     listOfForward[i] = listOfForward[i] + toAdd
@@ -98,14 +99,15 @@ class SolverSumLocalFBSDE(SolverBase):
             error = 0
             #init val
             ZPrev = self.modelKeras.modelZ(self.mathModel.getStatesZ())
-            YListPrev = tf.stack([self.modelKeras.model(self.mathModel.getStatesU(l)) for l in range(self.mathModel.maxJumps)], axis = 1)
+            YListPrevPlus = tf.stack([self.modelKeras.model(self.mathModel.getStatesU(l)) for l in range(self.mathModel.maxJumps)], axis = 1)
+            YListPrevMinus = tf.stack([tf.zeros([1,nbSimul]), *[self.modelKeras.model(self.mathModel.getStatesU(l-1)) for l in range(1, self.mathModel.maxJumps)]], axis = 1)
             for istep in range(self.mathModel.N):
                 # increment
                 gaussian = tf.random.normal([nbSimul])
                 dW =  np.sqrt(self.mathModel.dt)*gaussian 
                 # target
-                toAdd = self.mathModel.dt*self.mathModel.f(YListPrev[:,0]) - ZPrev*dW + tf.reduce_sum(YListPrev, axis = 1) - tf.reduce_sum(YListPrev[:,:-1] , axis = 1)\
-                 - tf.reduce_mean(tf.reduce_sum(YListPrev, axis = 1) - tf.reduce_sum(YListPrev[:,:-1] , axis = 1))
+                toAdd = self.mathModel.dt*self.mathModel.f(YListPrevPlus[:,0]) - ZPrev*dW + tf.reduce_sum(YListPrevPlus, axis = 1) - tf.reduce_sum(YListPrevMinus , axis = 1)\
+                 - tf.reduce_mean(tf.reduce_sum(YListPrevPlus, axis = 1) - tf.reduce_sum(YListPrevMinus , axis = 1))
                 # next step
                 self.mathModel.oneStepFrom(dW, gaussJ, listJumps)
                 # jump and compensation
@@ -114,7 +116,8 @@ class SolverSumLocalFBSDE(SolverBase):
                     YListNext = tf.stack([self.mathModel.g(self.mathModel.X)]*self.mathModel.maxJumps, axis =1)
                 else:
                   ZNext = self.modelKeras.modelZ(self.mathModel.getStatesZ())
-                  YListNext = tf.stack([self.modelKeras.model(self.mathModel.getStatesU(l)) for l in range(self.mathModel.maxJumps)], axis = 1)
+                  YListNextPlus = tf.stack([self.modelKeras.model(self.mathModel.getStatesU(l)) for l in range(self.mathModel.maxJumps)], axis = 1)
+                  YListPrevMinus = tf.stack([tf.zeros([1,nbSimul]), *[self.modelKeras.model(self.mathModel.getStatesU(l-1)) for l in range(1, self.mathModel.maxJumps)]], axis = 1)
                 error = error + tf.reduce_mean(tf.square(YListNext[:,0] - YListPrev[:,0] + toAdd))
                 YListPrev = YListNext
             return error
