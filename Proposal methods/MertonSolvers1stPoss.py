@@ -118,7 +118,7 @@ class SolverSumLocalFBSDE(SolverBase):
                   ZNext = self.modelKeras.modelZ(self.mathModel.getStatesZ())
                   YListNextPlus = tf.stack([self.modelKeras.model(self.mathModel.getStatesU(l)) for l in range(self.mathModel.maxJumps)], axis = 1)
                   YListPrevMinus = tf.stack([tf.zeros([1,nbSimul]), *[self.modelKeras.model(self.mathModel.getStatesU(l-1)) for l in range(1, self.mathModel.maxJumps)]], axis = 1)
-                error = error + tf.reduce_mean(tf.square(YListNext[:,0] - YListPrev[:,0] + toAdd))
+                error = error + tf.reduce_mean(tf.square(YListNextPlus[:,0] - YListPrevPlus[:,0] + toAdd))
                 YListPrev = YListNext
             return error
                 
