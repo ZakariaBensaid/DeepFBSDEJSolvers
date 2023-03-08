@@ -208,4 +208,4 @@ class MertonJumpModel:
 
     #Get states variables to inject in the nn
     def getStates(self, dN, listJumps, gaussJ):
-        return self.iStep*self.dt*tf.ones([self.batchSize]), self.X, self.g(self.X), dN, *listJumps, gaussJ
+        return self.iStep*self.dt*tf.ones([self.batchSize]), self.X, self.g(self.X), (self.iStep>0)*dN, *[(self.iStep>0)*x for x in listJumps], (self.iStep>0)*gaussJ
