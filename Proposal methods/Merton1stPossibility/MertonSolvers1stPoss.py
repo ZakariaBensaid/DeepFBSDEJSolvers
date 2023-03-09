@@ -25,7 +25,7 @@ class SolverGlobalFBSDE(SolverBase):
             # initialize
             self.mathModel.init(nbSimul)
             # get back initial value
-            Y = self.modelKeras.model(self.mathModel.getStatesU(0))
+            Y = self.modelKeras.model.Y0
             for istep in range(self.mathModel.N):
                 # increment
                 gaussian = tf.random.normal([nbSimul])
@@ -66,8 +66,7 @@ class SolverGlobalFBSDE(SolverBase):
             rtime = end_time-start_time
             self.duration += rtime
             objError = optimizeBSDE(batchSizeVal)
-            self.mathModel.init(1)
-            Y0 = self.modelKeras.model(self.mathModel.getStatesU(0))[0][0]
+            Y0 = self.modelKeras.model.Y0
             print(" Error",objError.numpy(),  " elapsed time %5.3f s" % self.duration, "Y0 sofar ",Y0.numpy(), 'epoch', iout)
             self.listY0.append(Y0.numpy())
             self.lossList.append(objError)   
