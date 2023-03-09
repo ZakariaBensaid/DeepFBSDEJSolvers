@@ -355,9 +355,10 @@ class SolverOsterleeFBSDE(SolverBase):
                 dN, listJumps, gaussJ  = self.mathModel.jumps()
                 # get back U, Z, 
                 Z = self.modelKeras.modelZ(self.mathModel.getStatesZ())
-                Y = self.modelKeras.model(self.mathModel.getStatesU(0))
+                YList = tf.stack([self.modelKeras.model(self.mathModel.getStatesU(l)) for l in range(self.mathModel.maxJumps + 1)], axis = 1)
                 # target
-                Y0 += self.mathModel.dt* self.mathModel.f(Y)
+                Y0 += self.mathModel.dt* self.mathModel.f(YList[:,0]) - Z*dW -  tf.reduce_sum(YList[:,1:] - YList[:,:-1], axis = 1)\
+                 + tf.reduce_mean(tf.reduce_sum(YList[:,1:] - YList[:,:-1], axis = 1)) 
                 # next t step
                 self.mathModel.oneStepFrom(dW, gaussJ, listJumps)
             Y0 += self.mathModel.g(self.mathModel.X)
@@ -377,7 +378,7 @@ class SolverOsterleeFBSDE(SolverBase):
                 Z = self.modelKeras.modelZ(self.mathModel.getStatesZ())
                 YList = tf.stack([self.modelKeras.model(self.mathModel.getStatesU(l)) for l in range(self.mathModel.maxJumps + 1)], axis = 1)
                 # adjoint variables
-                Y = Y - self.mathModel.dt*self.mathModel.f(Y) + Z*dW + + tf.reduce_sum(YList[:,1:] - YList[:,:-1], axis = 1)\
+                Y = Y - self.mathModel.dt*self.mathModel.f(Y) + Z*dW +  tf.reduce_sum(YList[:,1:] - YList[:,:-1], axis = 1)\
                  - tf.reduce_mean(tf.reduce_sum(YList[:,1:] - YList[:,:-1], axis = 1))           
                 # next t step
                 self.mathModel.oneStepFrom(dW, gaussJ, listJumps)
