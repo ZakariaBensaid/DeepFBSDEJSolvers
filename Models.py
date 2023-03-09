@@ -187,10 +187,9 @@ class MertonJumpModel:
 
     #jumps
     def jumps(self):
-      lam = self.lam*tf.ones([self.batchSize])
-      dN = tf.random.poisson([1], lam*self.dt, dtype = tf.float32)[0]
-      bindN = tf.sequence_mask(dN, self.maxJumps, dtype = tf.float32)
-      listJumps = tf.where(bindN > 0,
+      dN = tf.random.poisson([self.batchSize], self.lam*self.dt, dtype = tf.float32)
+      bindN = tf.sequence_mask(dN, self.maxJumps)
+      listJumps = tf.where(bindN,
                             tf.random.normal([self.batchSize, self.maxJumps], self.muJ, self.sigJ),
                             tf.zeros([self.batchSize, self.maxJumps]))
       unstackedList = tf.unstack(listJumps, axis = 1)
