@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import os
-from Networks import Net
+from Networks1stPoss import kerasModels
 from MertonModel1stPoss import MertonJumpModel
 from MertonSolvers1stPoss import SolverGlobalFBSDE, SolverMultiStepFBSDE,SolverSumLocalFBSDE, SolverGlobalMultiStepReg, SolverGlobalSumLocalReg, SolverOsterleeFBSDE
 from ClosedFormulaMerton import Option_param, Merton_process, Merton_pricer
