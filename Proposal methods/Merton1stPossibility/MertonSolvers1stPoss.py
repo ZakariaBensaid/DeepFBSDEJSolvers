@@ -33,8 +33,8 @@ class SolverGlobalFBSDE(SolverBase):
                 # jump and compensation
                 dN, listJumps, gaussJ  = self.mathModel.jumps()
                 # get back Z,U
-                Z = self.modelKeras.modelZ(self.mathModel.getStatesZ())
-                YList = tf.stack([self.modelKeras.model(self.mathModel.getStatesU(l)) for l in range(self.mathModel.maxJumps + 1)], axis = 1) 
+                Z = self.modelKeras.modelZ(self.mathModel.getStatesZ())[0]
+                YList = tf.stack([self.modelKeras.model(self.mathModel.getStatesU(l))[0] for l in range(self.mathModel.maxJumps + 1)], axis = 1) 
                 # target
                 Y = Y - self.mathModel.dt* self.mathModel.f(Y) + Z*dW + tf.reduce_sum(YList[:,1:] - YList[:,:-1], axis = 1)\
                  - tf.reduce_mean(tf.reduce_sum(YList[:,1:] - YList[:,:-1], axis = 1))
@@ -90,8 +90,8 @@ class SolverMultiStepFBSDE(SolverBase):
                 gaussian = tf.random.normal([nbSimul])
                 dW =  np.sqrt(self.mathModel.dt)*gaussian 
                 # Adjoint variables 
-                Z = self.modelKeras.modelZ(self.mathModel.getStatesZ())
-                YList = tf.stack([self.modelKeras.model(self.mathModel.getStatesU(l)) for l in range(self.mathModel.maxJumps + 1)], axis = 1)
+                Z = self.modelKeras.modelZ(self.mathModel.getStatesZ())[0]
+                YList = tf.stack([self.modelKeras.model(self.mathModel.getStatesU(l))[0] for l in range(self.mathModel.maxJumps + 1)], axis = 1)
                 # target
                 toAdd = - self.mathModel.dt*self.mathModel.f(YList[:,0]) + Z*dW + tf.reduce_sum(YList[:,1:] - YList[:,:-1], axis = 1)\
                  - tf.reduce_mean(tf.reduce_sum(YList[:,1:] - YList[:,:-1], axis = 1))
@@ -153,8 +153,8 @@ class SolverSumLocalFBSDE(SolverBase):
             #error
             error = 0
             #init val
-            ZPrev = self.modelKeras.modelZ(self.mathModel.getStatesZ())
-            YListPrev = tf.stack([self.modelKeras.model(self.mathModel.getStatesU(l)) for l in range(self.mathModel.maxJumps + 1)], axis = 1)
+            ZPrev = self.modelKeras.modelZ(self.mathModel.getStatesZ())[0]
+            YListPrev = tf.stack([self.modelKeras.model(self.mathModel.getStatesU(l))[0] for l in range(self.mathModel.maxJumps + 1)], axis = 1)
             for istep in range(self.mathModel.N):
                 # increment
                 gaussian = tf.random.normal([nbSimul])
@@ -354,16 +354,17 @@ class SolverOsterleeFBSDE(SolverBase):
                 # jump and compensation
                 dN, listJumps, gaussJ  = self.mathModel.jumps()
                 # get back U, Z, 
-                Z = self.modelKeras.modelZ(self.mathModel.getStatesZ())
-                YList = tf.stack([self.modelKeras.model(self.mathModel.getStatesU(l)) for l in range(self.mathModel.maxJumps + 1)], axis = 1)
+                Z = self.modelKeras.modelZ(self.mathModel.getStatesZ())[0]
+                YList = tf.stack([self.modelKeras.model(self.mathModel.getStatesU(l))[0] for l in range(self.mathModel.maxJumps + 1)], axis = 1)
                 # target
-                Y0 += self.mathModel.dt* self.mathModel.f(YList[:,0]) - Z*dW -  tf.reduce_sum(YList[:,1:] - YList[:,:-1], axis = 1)\
-                 + tf.reduce_mean(tf.reduce_sum(YList[:,1:] - YList[:,:-1], axis = 1)) 
+                Y0 += self.mathModel.dt*self.mathModel.f(YList[:,0]) - Z*dW -  tf.reduce_sum(YList[:,1:] - YList[:,:-1], axis = 1)\
+                - tf.reduce_mean(tf.reduce_sum(YList[:,1:] - YList[:,:-1], axis = 1)) 
                 # next t step
                 self.mathModel.oneStepFrom(dW, gaussJ, listJumps)
             Y0 += self.mathModel.g(self.mathModel.X)
             # initial value
             Y = tf.reduce_mean(Y0)
+            errorComp = 0.
             #Compute error
             ####################################################################
             # initialize
@@ -375,14 +376,16 @@ class SolverOsterleeFBSDE(SolverBase):
                 # jump and compensation
                 dN, listJumps, gaussJ  = self.mathModel.jumps()
                 # get back Y, Z, Gam
-                Z = self.modelKeras.modelZ(self.mathModel.getStatesZ())
-                YList = tf.stack([self.modelKeras.model(self.mathModel.getStatesU(l)) for l in range(self.mathModel.maxJumps + 1)], axis = 1)
+                Z = self.modelKeras.modelZ(self.mathModel.getStatesZ())[0]
+                YList = tf.stack([self.modelKeras.model(self.mathModel.getStatesU(l))[0] for l in range(self.mathModel.maxJumps + 1)], axis = 1)
+                #extra error
+                errorComp += tf.reduce_mean(tf.square(YList[:,0] - Y))
                 # adjoint variables
                 Y = Y - self.mathModel.dt*self.mathModel.f(Y) + Z*dW +  tf.reduce_sum(YList[:,1:] - YList[:,:-1], axis = 1)\
                  - tf.reduce_mean(tf.reduce_sum(YList[:,1:] - YList[:,:-1], axis = 1))           
                 # next t step
                 self.mathModel.oneStepFrom(dW, gaussJ, listJumps)
-            return  tf.reduce_mean(Y0) + self.lamCoef*(tf.reduce_mean(tf.square(Y - self.mathModel.g(self.mathModel.X)))), tf.reduce_mean(Y0)
+            return  tf.reduce_mean(Y0) + self.lamCoef*(tf.reduce_mean(tf.square(Y - self.mathModel.g(self.mathModel.X))) + errorComp), tf.reduce_mean(Y0)
                 
         # train to optimize control
         @tf.function
