@@ -3,6 +3,7 @@ import tensorflow as tf
 import time
 from tensorflow.keras import  optimizers
 
+
 class SolverBase:
     # mathModel          Math model
     # modelKeras         Keras model 
@@ -25,18 +26,20 @@ class SolverGlobalFBSDE(SolverBase):
             self.mathModel.init(nbSimul)
             # Target
             Y = self.modelKeras.Y0
+            # error compensator
             for istep in range(self.mathModel.N):
-                # get back U, Z, 
-                U = self.modelKeras(self.mathModel.getStates())
                 # increment
                 gaussian = tf.random.normal([nbSimul])
-                # gamma distribution and compensation
-                gamma , compens  = self.mathModel.Gamma()
+                dW =  np.sqrt(self.mathModel.dt)*gaussian 
+                # jump and compensation
+                dN, listJumps, gaussJ  = self.mathModel.jumps()
+                # get back U, Z, 
+                Z0, Gam = self.modelKeras(self.mathModel.getStates(Y, dN, listJumps, gaussJ))
                 # target
-                YNext = Y - self.mathModel.dt* self.mathModel.f(Y) + U*tf.multiply(self.mathModel.theta,(gamma - compens)) + U*tf.sqrt(gamma)*gaussian 
+                Y = Y - self.mathModel.dt* self.mathModel.f(Y) + Z0*dW + Gam - tf.reduce_mean(Gam)
                 # next t step
-                self.mathModel.oneStepFrom(gaussian, gamma)
-                Y = YNext
+                self.mathModel.oneStepFrom(dW, gaussJ)
+                # update error 
             return  tf.reduce_mean(tf.square(Y- self.mathModel.g(self.mathModel.X)))
 
         # train to optimize control
@@ -52,43 +55,21 @@ class SolverGlobalFBSDE(SolverBase):
 
         self.listY0 = []
         self.lossList = []
+        self.duration = 0
         for iout in range(num_epochExt):
             start_time = time.time()
             for epoch in range(num_epoch):
                 # un pas de gradient stochastique
                 trainOpt(batchSize, optimizer)
             end_time = time.time()
-            rtime = end_time-start_time 
+            rtime = end_time-start_time
+            self.duration += rtime
             objError = optimizeBSDE(batchSizeVal)
             Y0 = self.modelKeras.Y0
-            print(" Error",objError.numpy(),  " took %5.3f s" % rtime, "Y0 sofar ",Y0.numpy(), 'epoch', iout)
+            print(" Error",objError.numpy(),  " elapsed time %5.3f s" % self.duration, "Y0 sofar ",Y0.numpy(), 'epoch', iout)
             self.listY0.append(Y0.numpy())
             self.lossList.append(objError)   
         return self.listY0 
-    
-    def simulateGlobalErr(self, nbSimul):
-        # initialize
-        self.mathModel.init(nbSimul)
-        costFunc = 0.
-        # Target
-        Y = self.modelKeras.Y0
-        for istep in range(self.mathModel.N):
-            # get back U, Z, 
-            U = self.modelKeras(self.mathModel.getStates())
-            #costfunc
-            costFunc += self.mathModel.dt* self.mathModel.f(Y)
-            # increme
-            gaussian = tf.random.normal([nbSimul])
-            dW = np.sqrt(self.mathModel.dt)*tf.random.normal([nbSimul])
-            # gamma distribution and compensation
-            gamma , compens  = self.mathModel.Gamma()
-            # target
-            YNext = Y - self.mathModel.dt* self.mathModel.f(Y) + U*tf.multiply(self.mathModel.theta, (gamma - compens)) + U*tf.sqrt(gamma)*gaussian
-            #Go to next step                 
-            self.mathModel.oneStepFrom(gaussian, gamma)
-            Y = YNext
-        costFunc += self.mathModel.g(self.mathModel.X)
-        return  tf.reduce_mean(costFunc), tf.reduce_mean(tf.square(Y- self.mathModel.g(self.mathModel.X)))
 
 class SolverMultiStepFBSDE(SolverBase):
     def __init__(self, mathModel,   modelKeras, lRate):
@@ -100,24 +81,28 @@ class SolverMultiStepFBSDE(SolverBase):
         def optimizeBSDE( nbSimul):
             # initialize
             self.mathModel.init(nbSimul)
+            dN, listJumps, gaussJ  = self.mathModel.jumps()
             # Target
             listOfForward = []
+            YInput = tf.zeros([nbSimul])
             for istep in range(self.mathModel.N):
-                # Adjoint variables 
-                Y, U = self.modelKeras(self.mathModel.getStates())
                 # Common and individual noises
                 gaussian = tf.random.normal([nbSimul])
-                # gamma distribution and compensation
-                gamma , compens  = self.mathModel.Gamma()
+                dW =  np.sqrt(self.mathModel.dt)*gaussian 
+                # Adjoint variables 
+                Y, Z0, Gam = self.modelKeras(self.mathModel.getStates(YInput, dN, listJumps, gaussJ))
                 # target
-                toAdd = - self.mathModel.dt* self.mathModel.f(Y) + U*tf.multiply(self.mathModel.theta, (gamma - compens)) + U*tf.sqrt(gamma)*gaussian 
-                #update list
+                toAdd = - self.mathModel.dt*self.mathModel.f(Y) + Z0*dW + Gam - tf.reduce_mean(Gam)
+                #update list and error
                 listOfForward.append(Y)
                 #forward
                 for i in range(len(listOfForward)):
                     listOfForward[i] = listOfForward[i] + toAdd
                 # next t step
-                self.mathModel.oneStepFrom(gaussian, gamma)
+                self.mathModel.oneStepFrom(dW, gaussJ)
+                # jump and compensation
+                YInput = Y 
+                dN, listJumps, gaussJ  = self.mathModel.jumps()
             #Final Y
             Yfinal = self.mathModel.g(self.mathModel.X)
             listOfForward = tf.stack(listOfForward, axis=0)
@@ -145,30 +130,12 @@ class SolverMultiStepFBSDE(SolverBase):
             rtime = end_time-start_time 
             objError = optimizeBSDE(batchSizeVal)
             self.mathModel.init(1)
-            Y0 = self.modelKeras(self.mathModel.getStates())[0][0]
+            dN, listJumps, gaussJ  = self.mathModel.jumps()
+            Y0 = self.modelKeras(self.mathModel.getStates(0, dN, listJumps, gaussJ))[0][0]
             print(" Error",objError.numpy(),  " took %5.3f s" % rtime, "Y0 sofar ",Y0.numpy(), 'epoch', iout)
             self.listY0.append(Y0.numpy())
             self.lossList.append(objError)   
         return self.listY0 
-    
-    def simulateGlobalErr(self, nbSimul):
-        # initialize
-        self.mathModel.init(nbSimul)
-        costFunc = 0.
-        for istep in range(self.mathModel.N):
-            # get back U, Z, 
-            Y, U = self.modelKeras(self.mathModel.getStates())
-            #costfunc
-            costFunc += self.mathModel.dt* self.mathModel.f(Y)
-            # increme
-            gaussian = tf.random.normal([nbSimul])
-            dW = np.sqrt(self.mathModel.dt)*tf.random.normal([nbSimul])
-            # gamma distribution and compensation
-            gamma , compens  = self.mathModel.Gamma()
-            #Go to next step                 
-            self.mathModel.oneStepFrom(gaussian, gamma)
-        costFunc += self.mathModel.g(self.mathModel.X)
-        return  tf.reduce_mean(costFunc), tf.reduce_mean(tf.square(Y- self.mathModel.g(self.mathModel.X)))
                 
         
 class SolverSumLocalFBSDE(SolverBase):
@@ -181,24 +148,28 @@ class SolverSumLocalFBSDE(SolverBase):
         def optimizeBSDE( nbSimul):
             # initialize
             self.mathModel.init(nbSimul)
+            dN, listJumps, gaussJ  = self.mathModel.jumps()
             #error
             error = 0
             #init val
-            YPrev, UPrev = self.modelKeras(self.mathModel.getStates())
+            YInput = tf.zeros([nbSimul])
+            YPrev, Z0Prev, GamPrev = self.modelKeras(self.mathModel.getStates(YInput, dN, listJumps, gaussJ))
             for istep in range(self.mathModel.N):
                 # increment
                 gaussian = tf.random.normal([nbSimul])
-                # gamma distribution and compensation
-                gamma , compens  = self.mathModel.Gamma()
+                dW =  np.sqrt(self.mathModel.dt)*gaussian 
                 # target
-                toAdd = self.mathModel.dt*self.mathModel.f(YPrev) - UPrev*tf.multiply(self.mathModel.theta, (gamma - compens)) - UPrev*tf.sqrt(gamma)*gaussian 
+                toAdd = self.mathModel.dt*self.mathModel.f(YPrev) - Z0Prev*dW - GamPrev + tf.reduce_mean(GamPrev)
                 # next step
-                self.mathModel.oneStepFrom(gaussian, gamma)
+                self.mathModel.oneStepFrom(dW, gaussJ)
+                # jump and compensation
+                dN, listJumps, gaussJ  = self.mathModel.jumps()
+                YInput = YPrev
                 if (istep == (self.mathModel.N-1)):
                     YNext = self.mathModel.g(self.mathModel.X)
                 else:
-                    YNext, UPrev = self.modelKeras(self.mathModel.getStates())
-                error = error + tf.reduce_mean(tf.square(YNext - YPrev + toAdd ))
+                    YNext, Z0Prev, GamPrev = self.modelKeras(self.mathModel.getStates(YInput, dN, listJumps, gaussJ))
+                error = error + tf.reduce_mean(tf.square(YNext - YPrev + toAdd))
                 YPrev = YNext
             return error
                 
@@ -224,29 +195,12 @@ class SolverSumLocalFBSDE(SolverBase):
             rtime = end_time-start_time 
             objError = optimizeBSDE(batchSizeVal)
             self.mathModel.init(1)
-            Y0 = self.modelKeras(self.mathModel.getStates())[0][0]
+            dN, listJumps, gaussJ  = self.mathModel.jumps()
+            Y0 = self.modelKeras(self.mathModel.getStates(0, dN, listJumps, gaussJ))[0][0]
             print(" Error",objError.numpy(),  " took %5.3f s" % rtime, "Y0 sofar ",Y0.numpy(), 'epoch', iout)
             self.listY0.append(Y0.numpy())
             self.lossList.append(objError)   
         return self.listY0 
-    
-    def simulateGlobalErr(self, nbSimul):
-        # initialize
-        self.mathModel.init(nbSimul)
-        costFunc = 0.
-        for istep in range(self.mathModel.N):
-            # get back U, Z, 
-            Y,_ = self.modelKeras(self.mathModel.getStates())
-            #costfunc
-            costFunc += self.mathModel.dt* self.mathModel.f(Y)
-            # increme
-            gaussian = tf.random.normal([nbSimul])
-            # gamma distribution and compensation
-            gamma , compens  = self.mathModel.Gamma()
-            #Go to next step                 
-            self.mathModel.oneStepFrom(gaussian, gamma)
-        costFunc += self.mathModel.g(self.mathModel.X)
-        return  tf.reduce_mean(costFunc), tf.reduce_mean(tf.square(Y- self.mathModel.g(self.mathModel.X)))
 
 # global as sum of local error due to regressions
 # see algorithm 
@@ -259,24 +213,28 @@ class SolverGlobalSumLocalReg(SolverBase):
         def regressOptim( nbSimul):
             # initialize
             self.mathModel.init(nbSimul)
+            dN, listJumps, gaussJ  = self.mathModel.jumps()
             # Target
             error = 0.
             # get back Y
-            YPrev, = self.modelKeras(self.mathModel.getStates())
+            YInput = tf.zeros([nbSimul])
+            YPrev, = self.modelKeras(self.mathModel.getStates(YInput, dN, listJumps, gaussJ))
             for istep in range(self.mathModel.N):
-                # increment
-                gaussian = tf.random.normal([nbSimul])
-                # gamma distribution and compensation
-                gamma , compens = self.mathModel.Gamma()
                 # target
                 toAdd = - self.mathModel.dt* self.mathModel.f(YPrev)
-                #Next step
-                self.mathModel.oneStepFrom(gaussian, gamma)
+                # increment
+                gaussian = tf.random.normal([nbSimul])
+                dW =  np.sqrt(self.mathModel.dt)*gaussian 
+                # Next step
+                Yinput = YPrev
+                self.mathModel.oneStepFrom(dW, gaussJ)
+                # jumps
+                dN, listJumps, gaussJ  = self.mathModel.jumps()
                 # values
                 if (istep == (self.mathModel.N-1)):
                     YNext = self.mathModel.g(self.mathModel.X)
                 else:
-                    YNext, = self.modelKeras(self.mathModel.getStates())
+                    YNext, = self.modelKeras(self.mathModel.getStates(YInput, dN, listJumps, gaussJ))
                 error = error +  tf.reduce_mean(tf.square(YPrev- YNext  + toAdd))
                 YPrev = YNext
             return error
@@ -303,30 +261,14 @@ class SolverGlobalSumLocalReg(SolverBase):
             rtime = end_time-start_time 
             objError = regressOptim(batchSizeVal)
             self.mathModel.init(1)
-            Y0 = self.modelKeras(self.mathModel.getStates())[0][0]
+            dN, listJumps, gaussJ  = self.mathModel.jumps()
+            Y0 = self.modelKeras(self.mathModel.getStates(0, dN, listJumps, gaussJ))[0][0]
             print(" Error",objError.numpy(),  " took %5.3f s" % rtime, "Y0 sofar ",Y0.numpy(), 'epoch', iout)
             self.listY0.append(Y0.numpy())
             self.lossList.append(objError)   
         return self.listY0 
   
-    def simulateGlobalErr(self, nbSimul):
-        # initialize
-        self.mathModel.init(nbSimul)
-        costFunc = 0.
-        for istep in range(self.mathModel.N):
-            # get back U, Z, 
-            Y, = self.modelKeras(self.mathModel.getStates())
-            #cost function
-            costFunc += self.mathModel.dt* self.mathModel.f(Y)
-            # next t step
-            # increme
-            gaussian = tf.random.normal([nbSimul])
-            # gamma distribution and compensation
-            gamma , compens  = self.mathModel.Gamma()                 
-            #Go to next step                 
-            self.mathModel.oneStepFrom(gaussian, gamma)
-        costFunc += self.mathModel.g(self.mathModel.X)
-        return   tf.reduce_mean(costFunc)
+
       
 # global as multiStep regression  for hatY
 # see algorithm 
@@ -342,11 +284,13 @@ class SolverGlobalMultiStepReg(SolverBase):
         def regressOptim( nbSimul):
             # initialize
             self.mathModel.init(nbSimul)
+            dN, listJumps, gaussJ  = self.mathModel.jumps()
             # Target
             listOfForward = []
+            YInput = tf.zeros([nbSimul])
             for istep in range(self.mathModel.N): 
                 # get back Y
-                Y, = self.modelKeras(self.mathModel.getStates())
+                Y, = self.modelKeras(self.mathModel.getStates(YInput, dN, listJumps, gaussJ))
                 # listforward
                 listOfForward.append(Y)                 
                 # to Add
@@ -355,10 +299,11 @@ class SolverGlobalMultiStepReg(SolverBase):
                     listOfForward[i] = listOfForward[i] + toAdd
                 # increment
                 gaussian = tf.random.normal([nbSimul])
-                # gamma distribution and compensation
-                gamma , compens  = self.mathModel.Gamma()  
+                dW =  np.sqrt(self.mathModel.dt)*gaussian
                 # next t step
-                self.mathModel.oneStepFrom(gaussian, gamma)
+                YInput = Y
+                self.mathModel.oneStepFrom(dW, gaussJ)
+                dN, listJumps, gaussJ  = self.mathModel.jumps()
             # final U
             Yfinal = self.mathModel.g(self.mathModel.X)
             listOfForward = tf.stack(listOfForward, axis=0) 
@@ -386,7 +331,8 @@ class SolverGlobalMultiStepReg(SolverBase):
             rtime = end_time-start_time 
             objError = regressOptim(batchSizeVal)
             self.mathModel.init(1)
-            Y0 = self.modelKeras(self.mathModel.getStates())[0][0].numpy()
+            dN, listJumps, gaussJ  = self.mathModel.jumps()
+            Y0 = self.modelKeras(self.mathModel.getStates(0, dN, listJumps, gaussJ))[0][0].numpy()
             print(" Error",objError.numpy(),  " took %5.3f s" % rtime, "Y0 sofar ",Y0, 'epoch', iout)
             self.listY0.append(Y0)
             self.lossList.append(objError)   
@@ -402,12 +348,14 @@ class SolverGlobalMultiStepReg(SolverBase):
             #cost function
             costFunc += self.mathModel.dt* self.mathModel.f(Y)
             # next t step
-            # increme
+            # increment
+            gaussJ = tf.random.normal([nbSimul], self.mathModel.muJ, self.mathModel.sigJ)
             gaussian = tf.random.normal([nbSimul])
-            # gamma distribution and compensation
-            gamma , compens  = self.mathModel.Gamma()                 
+            dW =  np.sqrt(self.mathModel.dt)*gaussian
+            # jump and compensation
+            dN = self.mathModel.dN()                 
             #Go to next step                 
-            self.mathModel.oneStepFrom(gaussian, gamma)
+            self.mathModel.oneStepFrom(dW, dN, listJumps, gaussJ)
         costFunc += self.mathModel.g(self.mathModel.X)
         return   tf.reduce_mean(costFunc)
 
@@ -424,18 +372,21 @@ class SolverOsterleeFBSDE(SolverBase):
             ####################################################################
             # initialize
             self.mathModel.init(nbSimul)   
-            Y0 = 0                     
+            Y0 = 0   
+            YInput = tf.zeros([nbSimul])                  
             for istep in range(self.mathModel.N):
-                # get back Y, Z, Gam
-                Y, U = self.modelKeras(self.mathModel.getStates())
                 # increment
                 gaussian = tf.random.normal([nbSimul])
-                # gamma distribution and compensation
-                gamma , compens  = self.mathModel.Gamma()
+                dW =  np.sqrt(self.mathModel.dt)*gaussian 
+                # jump and compensation
+                dN, listJumps, gaussJ  = self.mathModel.jumps()
+                # get back Y, Z, Gam
+                Y, Z0, Gam = self.modelKeras(self.mathModel.getStates(YInput, dN, listJumps, gaussJ))
                 # target
-                Y0 += self.mathModel.dt* self.mathModel.f(Y) - U*tf.multiply(self.mathModel.theta, (gamma - compens)) - U*tf.sqrt(gamma)*gaussian
+                Y0 += self.mathModel.dt* self.mathModel.f(Y)  - Z0*dW - Gam + tf.reduce_mean(Gam) 
                 # next t step
-                self.mathModel.oneStepFrom(gaussian, gamma)
+                YInput = Y
+                self.mathModel.oneStepFrom(dW, gaussJ)
             Y0 += self.mathModel.g(self.mathModel.X)
             # initial value
             Y = tf.reduce_mean(Y0)
@@ -444,19 +395,18 @@ class SolverOsterleeFBSDE(SolverBase):
             # initialize
             self.mathModel.init(nbSimul)  
             for istep in range(self.mathModel.N):
-                # get back Y, Z, Gam
-                _, U = self.modelKeras(self.mathModel.getStates())
                 # increment
                 gaussian = tf.random.normal([nbSimul])
-                # gamma distribution and compensation
-                gamma, compens  = self.mathModel.Gamma()
+                dW =  np.sqrt(self.mathModel.dt)*gaussian 
+                # jump and compensation
+                dN, listJumps, gaussJ  = self.mathModel.jumps()
+                # get back Y, Z, Gam
+                _, Z0, Gam = self.modelKeras(self.mathModel.getStates(Y, dN, listJumps, gaussJ))
                 # adjoint variables
-                YNext = Y - self.mathModel.dt*self.mathModel.f(Y) + U*tf.multiply(self.mathModel.theta, (gamma - compens)) +  U*tf.sqrt(gamma)*gaussian  
+                Y = Y - self.mathModel.dt*self.mathModel.f(Y) + Z0*dW + Gam - tf.reduce_mean(Gam)            
                 # next t step
-                self.mathModel.oneStepFrom(gaussian, gamma)
-                # Update 
-                Y = YNext
-            return  tf.reduce_mean(Y0) + self.lamCoef*tf.reduce_mean(tf.square(Y - self.mathModel.g(self.mathModel.X))), tf.reduce_mean(Y0)
+                self.mathModel.oneStepFrom(dW, gaussJ)
+            return  tf.reduce_mean(Y0) + self.lamCoef*(tf.reduce_mean(tf.square(Y - self.mathModel.g(self.mathModel.X)))), tf.reduce_mean(Y0)
                 
         # train to optimize control
         @tf.function
@@ -478,8 +428,7 @@ class SolverOsterleeFBSDE(SolverBase):
                 trainOpt(batchSize, optimizer)
             end_time = time.time()
             rtime = end_time-start_time 
-            objError = optimizeBSDE(batchSizeVal)[0]
-            Y0 = optimizeBSDE(batchSizeVal)[1]
+            objError, Y0 = optimizeBSDE(batchSizeVal)
             print(" Error",objError.numpy(),  " took %5.3f s" % rtime, "Y0 sofar ",Y0.numpy(), 'epoch', iout)
             self.listY0.append(Y0.numpy())
             self.lossList.append(objError)   
