@@ -3,7 +3,7 @@ import tensorflow as tf
 import os
 from Networks import Net
 from Models import MertonJumpModel
-from MertonSolvers import SolverGlobalFBSDE, SolverMultiStepFBSDE,SolverSumLocalFBSDE, SolverGlobalMultiStepReg, SolverGlobalSumLocalReg, SolverOsterleeFBSDE
+from PricingSolvers import SolverGlobalFBSDE, SolverMultiStepFBSDE,SolverSumLocalFBSDE, SolverGlobalMultiStepReg, SolverGlobalSumLocalReg, SolverOsterleeFBSDE
 from ClosedFormulaMerton import Option_param, Merton_process, Merton_pricer
 from ProcessesMerton import Processes
 import argparse
@@ -15,11 +15,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--nbNeuron', type=int, default=20)
 parser.add_argument('--nbLayer', type=int, default=2)
 parser.add_argument('--nEpochExt', type=int, default=100)
-parser.add_argument('--nEpoch', type=int, default=400)
-parser.add_argument('--batchSize',  type=int, default=256)
-parser.add_argument('--lRateY0',type=float, default =0.003)
-parser.add_argument('--lRateLoc',type=float, default =0.0001)
-parser.add_argument('--lRateReg',type=float, default =0.0001)
+parser.add_argument('--nEpoch', type=int, default=100)
+parser.add_argument('--batchSize',  type=int, default=10**4)
+parser.add_argument('--lRateY0',type=float, default =0.001)
+parser.add_argument('--lRateLoc',type=float, default =0.0003)
+parser.add_argument('--lRateReg',type=float, default =0.0003)
 parser.add_argument('--activation',  type= str, default="tanh")
 parser.add_argument('--coefOsterlee', type= float, default = 1000)
 parser.add_argument('--nbSimul', type= int, default = 5)
@@ -56,7 +56,7 @@ print('number of trajectories', nbSimul)
 layerSize = nbNeuron*np.ones((nbLayer,), dtype=np.int32) 
 # parameter models
 ######################################
-dict_parameters = {'T':1 , 'N':40, 'r':0.04, 'sig': 0.25, 'lam':0.3, 'muJ': 0.5, 'sigJ': 0.5, 'K': 0.9, 'x0': 1}
+dict_parameters = {'T':1 , 'N':50, 'r':0.04, 'sig': 0.25, 'lam':0.3, 'muJ': 0.5, 'sigJ': 0.5, 'K': 0.9, 'x0': 1}
 T, N, r, sig, lam, muJ, sigJ, K, x0 = dict_parameters.values()
 maxJumps = np.amax(np.random.poisson(lam*T/N, size = 10**7)) + 1
 print('Maximum number of Jumps:', maxJumps)

@@ -14,12 +14,12 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--nbNeuron', type=int, default=20)
 parser.add_argument('--nbLayer', type=int, default=2)
 parser.add_argument('--nEpochExt', type=int, default=100)
-parser.add_argument('--nEpoch', type=int, default=200)
-parser.add_argument('--batchSize',  type=int, default=128)
+parser.add_argument('--nEpoch', type=int, default=100)
+parser.add_argument('--batchSize',  type=int, default= 10**4)
 parser.add_argument('--rafCoef',  type=int, default=1)
 parser.add_argument('--lRateY0',type=float, default =0.001)
-parser.add_argument('--lRateLoc',type=float, default =0.00015)
-parser.add_argument('--lRateReg',type=float, default =0.0001)
+parser.add_argument('--lRateLoc',type=float, default =0.0003)
+parser.add_argument('--lRateReg',type=float, default =0.0003)
 parser.add_argument('--activation',  type= str, default="tanh")
 parser.add_argument('--coefOsterlee', type= float, default = 1000)
     
@@ -55,7 +55,7 @@ print('Osterlee coefficient', coefOsterlee)
 layerSize = nbNeuron*np.ones((nbLayer,), dtype=np.int32) 
 # parameter models
 #######################################
-dict_parameters = {'T':1, 'N':40, 'r':0.4, 'theta' : -0.1, 'kappa': 0.3, 'sigJ': 0.2, 'K': 1, 'x0': 1}
+dict_parameters = {'T':1, 'N':50, 'r':0.4, 'theta' : -0.1, 'kappa': 0.3, 'sigJ': 0.2, 'K': 1, 'x0': 1}
 T, N, r, theta, kappa, sigmaJ, K, x0 = dict_parameters.values()
 # DL model
 #######################################
