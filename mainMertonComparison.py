@@ -131,38 +131,3 @@ ax.plot(closedformula*np.ones(num_epochExt), label = 'Y0 closed formula', linest
 ax.grid()
 plt.legend()
 plt.show()
-
-# Plot simulations
-################################################################################
-nbSimulations = nbSimul
-dictFig = {}
-#for k, method in enumerate(['Global', 'SumMultiStep', 'SumLocal', 'SumLocalReg', 'SumMultiStepReg', 'Osterlee']):
-for k, method in enumerate(['Global']):
-  process = listProcesses[k]
-  process.simulateAllProcesses(nbSimulations)
-  for j in range(nbSimulations):
-    #X
-    #############################################
-    fig, ax = plt.subplots(nrows = 2, ncols = 2, figsize=(12, 8))
-    ax[0,0].plot(process.t*process.dt*24, process.X[j], label = r'$X$', linewidth=2.2, color = 'dimgray')
-    ax[0,0].set_title('Price')
-    ax[0,0].legend()
-    #Y
-    ############################################
-    ax[0,1].plot(process.t*process.dt*24, process.Y[j], label = r'$Y$', linewidth=2.2, color = 'dimgray')
-    ax[0,1].set_title('Backward component')
-    ax[0,1].legend()
-    #Gam
-    #############################################
-    ax[1,0].plot(process.t*process.dt*24, process.Gam[j], label = r'$U$', linewidth=2.2, color = 'dimgray')
-    ax[1,0].set_title('jumps part')
-    ax[1,0].legend()
-    # Compensator
-    ax[1,1].plot(process.t*process.dt*24, process.Compens[j], label = r'compens', linewidth=2.2, color = 'dimgray')
-    ax[1,1].set_title('Compensator of the jumps part')
-    ax[1,1].legend()
-    for ax in ax.flat:
-        ax.set(xlabel='time')
-    plt.legend()
-    plt.show()
-    dictFig[f'({method}, {j})'] = fig
