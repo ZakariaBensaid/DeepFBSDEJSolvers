@@ -93,7 +93,7 @@ class MFGSolutionsFixedTrajectory:
 
     def computeTarget(self, nbSimulations):
         if self.mathModel.jumpModel == 'stochastic':
-            self.alphaTg = self.mathModel.alphaTarget*(self.hQ - self.mathModel.QAver[0])
+            self.alphaTg = self.mathModel.alphaTarget*(self.hQ)
         else :
             self.alphaTg = self.mathModel.alphaTarget*np.ones((nbSimulations, self.mathModel.N+1))
 

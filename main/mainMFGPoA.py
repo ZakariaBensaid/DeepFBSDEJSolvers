@@ -10,6 +10,7 @@ import argparse
 import time
 import matplotlib.style as style 
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 import sys 
 
 
@@ -142,190 +143,228 @@ elif activation == 'relu':
     activ = tf.nn.relu
 
 
-#style for plots
-style.use('ggplot')
-listPi = [0., 0.1, 0.5, 0.95]
-#listPi = [0.5]
-dictPoA = {}
-for pi in listPi:
-  #Mathematical models
-  mathModelMFG = ModelCoupledFBSDE(T, QAver, R0,  jumpFactor, A, K, pi, p0, p1, f0, f1, theta,C, S0, h1, h2,sig0, sig, alphaTarget, jumpModel, 1)
-  mathModelMFCagg = ModelCoupledFBSDE(T, QAver, R0,  jumpFactor, A, K, pi, p0, p1, f0, f1, theta,C, S0, h1, h2,sig0, sig, alphaTarget, jumpModel, 2)
-  #Storing MFG and MFCagg
-  listMathModel = [mathModelMFG, mathModelMFCagg]
-  listSolutionsPlayer1 = []
-  listSolutionsPlayer2 = []
-  for k in range(len(listMathModel)): 
-      #define the mathematical model
-      mathModel = listMathModel[k]
-      #method
-      if method in ['SumMultiStepReg', 'SumLocalReg']:
-          kerasModel = kerasModels(Net_hat, Net, method, 1, 1,layerSize_hat, layerSize, activation_hat, activation)
-      elif method in ['SumMultiStep', 'SumLocal', 'Osterlee']:
-          kerasModel = kerasModels(Net_hat, Net, method, 3, 4,layerSize_hat, layerSize, activation_hat, activation)
-      else:
-          kerasModel = kerasModels(Net_hat, Net, method, 2, 3,layerSize_hat, layerSize, activation_hat, activation)
-      #solver
-      if method == "Global":
-          solver = SolverGlobalFBSDE(mathModel,kerasModel, lRateY0, couplage)
-      elif method == "SumMultiStep":
-          solver= SolverMultiStepFBSDE(mathModel,kerasModel, lRateLoc, couplage)
-      elif method == "SumLocal":
-          solver=  SolverSumLocalFBSDE(mathModel,kerasModel, lRateLoc, couplage)
-      elif method == 'SumMultiStepReg':
-          solver = SolverGlobalMultiStepReg(mathModel,kerasModel, lRateReg, couplage)
-      elif method == 'SumLocalReg':
-          solver =  SolverGlobalSumLocalReg(mathModel,kerasModel, lRateReg, couplage)
-      elif method == 'Osterlee':
-          solver = SolverOsterleeFBSDE(mathModel,kerasModel, lRateLoc, couplage, coefOsterlee) 
-      #train and  get solution
-      hY0List, Y0List=  solver.train(batchSize,batchSize*10, num_epoch,num_epochExt)
-      #Plotting
-      solutionPlayer1 = MFGSolutionsFixedTrajectory(mathModel, kerasModel, method, dW0_arr, dW_arrPlayer1, dN, 'OFF')
-      solutionPlayer2 = MFGSolutionsFixedTrajectory(mathModel, kerasModel, method, dW0_arr, dW_arrPlayer2, dN, 'OFF')
-      #store solutions
-      listSolutionsPlayer1.append(solutionPlayer1)
-      listSolutionsPlayer2.append(solutionPlayer2)
-  #Simulate processes
-  #################################################
-  #Player 1
-  #MFG
-  listSolutionsPlayer1[0].simulateAllProcesses(10)
-  listSolutionsPlayer1[0].computeTarget(10)
-  #MFCagg
-  listSolutionsPlayer1[1].simulateAllProcesses(10)
-  listSolutionsPlayer1[1].computeTarget(10)
-  #Player2
-  #MFG
-  listSolutionsPlayer2[0].simulateAllProcesses(10)
-  listSolutionsPlayer2[0].computeTarget(10)
-  #MFCagg
-  listSolutionsPlayer2[1].simulateAllProcesses(10)
-  listSolutionsPlayer2[1].computeTarget(10)   
-  #Plots
-  ###############################################
-  for j in range(10):
-    #Consumption
-    #############################################
-    fig, ax = plt.subplots(figsize=(14, 6))
-    ax.plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].hQ[j], label = r'$\hat{Q}$', linewidth=2.2, color = 'dimgray')
-    ax.plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].Q[j], label = r'$Q^{1}$ player 1', color = 'lightsteelblue')
-    ax.plot(listSolutionsPlayer2[0].t*listSolutionsPlayer2[0].dt*24, listSolutionsPlayer2[0].Q[j], label = r'$Q^{2}$ player 2', color = 'burlywood')
-    plt.xlabel('time (hour)')
-    plt.ylabel('consumption (kW)')
-    plt.legend()
-    plt.show()
-    #intensity
-    ############################################
-    fig, ax = plt.subplots(figsize=(14, 6))
-    ax.plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].hQ[j], label = r'$\hat{Q}$', linewidth=2.2, color = 'dimgray')
-    ax.set_xlabel('time (hour)')
-    ax.set_ylabel('consumption (kW)')
-    ax.legend(loc = 2)
-    ax2 = ax.twinx()
-    ax2.plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].lam[j], label = r'$\lambda$: jump intensity', linestyle = 'dashed', color = 'tab:brown')
-    ax2.set_ylabel('jump intensity')
-    ax2.legend(loc = 1)
-    plt.show()
-    #Jumps
-    #############################################
-    fig, ax = plt.subplots(figsize=(14, 6))
-    ax.plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].R[j] < listSolutionsPlayer1[0].theta, label = 'jumps')
-    plt.xlabel('time (hour)')
-    plt.ylabel('jumps (kW)')
-    plt.legend()
-    plt.show()
-    #Seasonalized consumption after equilibrium
-    ###########################################
-    fig, ax = plt.subplots(figsize=(14, 6))
-    ax.fill_between(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, 0, 1, where= listSolutionsPlayer1[0].R[j] < listSolutionsPlayer1[0].theta,
-                color='green', alpha=0.2, transform=ax.get_xaxis_transform())
-    ax.plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].alphaTg[j] , color='tab:brown', label= r'$\alpha_{tg}$', linestyle = 'dashed')
-    #MFG
-    ax.plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].hQ[j] + listSolutionsPlayer1[0].alpha_hat[j] \
-            - listSolutionsPlayer1[0].QAver , label = 'MFG proj.', linewidth=2.2, color = 'dimgray')
-    ax.plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].Q[j] + listSolutionsPlayer1[0].alpha[j]\
-            - listSolutionsPlayer1[0].QAver, label = 'MFG player1', color = 'lightsteelblue')
-    ax.plot(listSolutionsPlayer2[0].t*listSolutionsPlayer2[0].dt*24, listSolutionsPlayer2[0].Q[j] + listSolutionsPlayer2[0].alpha[j]\
-            - listSolutionsPlayer1[0].QAver, label = 'MFG player2', color = 'burlywood')
-    #MFCagg
-    ax.plot(listSolutionsPlayer1[1].t*listSolutionsPlayer1[1].dt*24, listSolutionsPlayer1[1].hQ[j] + listSolutionsPlayer1[1].alpha_hat[j]\
-            - listSolutionsPlayer1[0].QAver, label = 'MFCagg proj.', linestyle='dotted', linewidth=2.2, color = 'dimgray')
-    ax.plot(listSolutionsPlayer1[1].t*listSolutionsPlayer1[1].dt*24, listSolutionsPlayer1[1].Q[j] + listSolutionsPlayer1[1].alpha[j]\
-            - listSolutionsPlayer1[0].QAver, label = 'MFCagg player1', linestyle='dotted', color = 'lightsteelblue')
-    ax.plot(listSolutionsPlayer2[1].t*listSolutionsPlayer2[1].dt*24, listSolutionsPlayer2[1].Q[j] + listSolutionsPlayer2[1].alpha[j]\
-            - listSolutionsPlayer1[0].QAver, label = 'MFCagg player2', linestyle='dotted', color = 'burlywood')
-    ax.title.set_text(f'pi = {pi}')
-    plt.xlabel('time (hour)')
-    plt.ylabel('seasonalized consumption after eq. (kW)')
-    plt.legend(prop={'size': 8})
-    plt.show()
-    #Consumption after equilibrium
-    ############################################
-    fig, ax = plt.subplots(figsize=(14, 6))
-    ax.fill_between(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, 0, 1, where= listSolutionsPlayer1[0].R[j] < listSolutionsPlayer1[0].theta,
-                color='green', alpha=0.2, transform=ax.get_xaxis_transform())
-    #MFG
-    ax.plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].hQ[j] + listSolutionsPlayer1[0].alpha_hat[j], label = f'MFG proj.', linewidth=2.2, color = 'dimgray')
-    ax.plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].Q[j] + listSolutionsPlayer1[0].alpha[j], label = f'MFG  player1', color = 'lightsteelblue')
-    ax.plot(listSolutionsPlayer2[0].t*listSolutionsPlayer2[0].dt*24, listSolutionsPlayer2[0].Q[j] + listSolutionsPlayer2[0].alpha[j], label = f'MFG  player2', color = 'burlywood')
-    #MFCagg
-    ax.plot(listSolutionsPlayer1[1].t*listSolutionsPlayer1[1].dt*24, listSolutionsPlayer1[1].hQ[j] + listSolutionsPlayer1[1].alpha_hat[j], label = f'MFCagg proj. ', linestyle='dotted', linewidth=2.2, color = 'dimgray')
-    ax.plot(listSolutionsPlayer1[1].t*listSolutionsPlayer1[1].dt*24, listSolutionsPlayer1[1].Q[j] + listSolutionsPlayer1[1].alpha[j], label = f'MFCagg player1', linestyle='dotted', color = 'lightsteelblue')
-    ax.plot(listSolutionsPlayer2[1].t*listSolutionsPlayer2[1].dt*24, listSolutionsPlayer2[1].Q[j] + listSolutionsPlayer2[1].alpha[j], label = f'MFCagg player2', linestyle='dotted', color = 'burlywood')
-    ax.title.set_text(f'pi = {pi}')
-    plt.xlabel('time (hour)')
-    plt.ylabel('consumption after eq. (kW)')
-    plt.legend(prop={'size': 8})
-    plt.show()
-    #Cumulated deviation
-    ##########################################
-    fig, ax = plt.subplots(figsize=(14, 6))
-    #MFG
-    ax.plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].hS[j], label = f'MFG hS', linewidth=2.2, color = 'dimgray')
-    ax.plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].S[j], label = f'MFG S player1', color = 'lightsteelblue')
-    ax.plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer2[0].S[j], label = f'MFG S player2', color = 'burlywood')
-    #MFCagg
-    ax.plot(listSolutionsPlayer1[1].t*listSolutionsPlayer1[1].dt*24, listSolutionsPlayer1[1].hS[j], label = f'MFCagg hS', linestyle='dotted', linewidth=2.2, color = 'dimgray')
-    ax.plot(listSolutionsPlayer1[1].t*listSolutionsPlayer1[1].dt*24, listSolutionsPlayer1[1].S[j], label = f'MFCagg S player1', linestyle='dotted', color = 'lightsteelblue')
-    ax.plot(listSolutionsPlayer1[1].t*listSolutionsPlayer1[1].dt*24, listSolutionsPlayer2[1].S[j], label = f'MFCagg S player2', linestyle='dotted', color = 'burlywood')
-    ax.title.set_text(f'pi = {pi}')
-    plt.xlabel('time (hour)')
-    plt.ylabel(r'$S$')
-    plt.legend(prop={'size': 8})
-    plt.show()
-    #Price
-    #########################################
-    fig, ax = plt.subplots(figsize=(14, 6))
-    ax.fill_between(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, 0, 1, where= listSolutionsPlayer1[0].R[j] < listSolutionsPlayer1[0].theta,
-                color='green', alpha=0.2, transform=ax.get_xaxis_transform())
-    #MFG
-    ax.plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].price(pi, 0)[j], label = f'MFG price without alpha')
-    ax.plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].price(pi, listSolutionsPlayer1[0].alpha_hat)[j],\
-            label = f'MFG price')
-    #MFCagg
-    ax.plot(listSolutionsPlayer1[1].t*listSolutionsPlayer1[1].dt*24, listSolutionsPlayer1[1].price(pi, 0)[j], label = f'MFCagg price without alpha', linestyle='dotted')
-    ax.plot(listSolutionsPlayer1[1].t*listSolutionsPlayer1[1].dt*24, listSolutionsPlayer1[1].price(pi, listSolutionsPlayer1[1].alpha_hat)[j],\
-            label = f'MFCagg price', linestyle='dotted')
-    ax.title.set_text(f'pi = {pi}')
-    plt.xlabel('time (hour)')
-    plt.ylabel('price (euros)')
-    plt.legend(prop={'size': 8})
-    plt.show()
+#Pretraining
+#############################################
+#method
+NbSimulation = 5
+if method in ['SumMultiStepReg', 'SumLocalReg']:
+    kerasModel = kerasModels(Net_hat, Net, method, 1, 1,layerSize_hat, layerSize, activation_hat, activation)
+elif method in ['SumMultiStep', 'SumLocal', 'Osterlee']:
+    kerasModel = kerasModels(Net_hat, Net, method, 3, 4,layerSize_hat, layerSize, activation_hat, activation)
+else:
+    kerasModel = kerasModels(Net_hat, Net, method, 2, 3,layerSize_hat, layerSize, activation_hat, activation)
+solutionPlayer1 = MFGSolutionsFixedTrajectory(mathModel0, kerasModel, method, dW0_arr, dW_arrPlayer1, dN, 'OFF')
+solutionPlayer2 = MFGSolutionsFixedTrajectory(mathModel0, kerasModel, method, dW0_arr, dW_arrPlayer2, dN, 'OFF')
+solutionPlayer1.simulateAllProcesses(NbSimulation)
+solutionPlayer1.computeTarget(NbSimulation)
+solutionPlayer2.simulateAllProcesses(NbSimulation)
+solutionPlayer2.computeTarget(NbSimulation)
+listFiguresPreTrain = []
+for j in range(NbSimulation):
+  #Consumption
+  #############################################
+  fig, ax = plt.subplots(nrows = 2, ncols = 2, figsize=(12, 8))
+  ax[0,0].plot(solutionPlayer1.t*solutionPlayer1.dt*24, solutionPlayer1.hQ[j], label = r'$\hat{Q}$', linewidth=2.2, color = 'dimgray')
+  ax[0,0].plot(solutionPlayer1.t*solutionPlayer1.dt*24, solutionPlayer1.Q[j], label = r'$Q^{1}$ player 1', color = 'blue')
+  ax[0,0].plot(solutionPlayer2.t*solutionPlayer2.dt*24, solutionPlayer2.Q[j], label = r'$Q^{2}$ player 2', color = 'red')
+  ax[0,0].set_title('consumption (kW)')
+  ax[0,0].legend()
+  #intensity
+  ############################################
+  ax[0,1].plot(solutionPlayer1.t*solutionPlayer1.dt*24, solutionPlayer1.hQ[j], label = r'$\hat{Q}$', linewidth=2.2, color = 'dimgray')
+  ax[0,1].set_title('intensity')
+  ax[0,1].legend(loc = 2)
+  ax2 = ax[0,1].twinx()
+  ax2.plot(solutionPlayer1.t*solutionPlayer1.dt*24, solutionPlayer1.lam[j], label = r'$\lambda$', linestyle = 'dashed', color = 'tab:brown')
+  ax2.legend(loc = 1)
+  #Jumps
+  #############################################
+  ax[1,1].plot(solutionPlayer1.t*solutionPlayer1.dt*24, solutionPlayer1.R[j] < solutionPlayer1.theta, label = 'jumps')
+  ax[1,1].set_title('jumps')
+  ax[1,0].axis('off')
+  for ax in ax.flat:
+      ax.set(xlabel='time (hours)')
+  plt.legend()
+  plt.show()
+  listFiguresPreTrain.append(fig)
 
-  #Compute Price of Anarchy
-  #MFG 0 in list
-  listSolutionsPlayer1[0].simulateAllProcesses(nbSimul)
-  listSolutionsPlayer1[0].computeTarget(nbSimul)
-  MFGPlayer, stdMFGPlayer = listSolutionsPlayer1[0].objectiveFunction()
-  #MFCagg 1 in list
-  listSolutionsPlayer1[1].simulateAllProcesses(nbSimul)
-  listSolutionsPlayer1[1].computeTarget(nbSimul)
-  MFCaggPlayer, stdMFCaggPlayer = listSolutionsPlayer1[1].objectiveFunction()  
-  #####################################
-  PoA = MFGPlayer / MFCaggPlayer 
-  dictPoA[pi] = ['{0:.3f}'.format(MFGPlayer)  + '(+/- {0:.3f}'.format(1.96*stdMFGPlayer/np.sqrt(nbSimul)) + ')',\
-                 '{0:.3f}'.format(MFCaggPlayer) + '(+/- {0:.3f}'.format(1.96*stdMFCaggPlayer/np.sqrt(nbSimul)) + ')', PoA]
-  #####################################
-dfPoA = pd.DataFrame(dictPoA, index = ['MFG players', 'MFCagg players', 'PoA'])
-print('The price of Anarchy for this model is: \n', dfPoA)
+dict_cases = {'with jumps and with dynamic pricing': [ 6.159423723, 87.4286117, 0, 10**4], 'with jumps and without pricing': [0, 0, 0, 10**4], 'without jumps and with pricing' : [6.159423723, 87.4286117, 0, 0]}
+dictFiguresPostTrain = {}
+listPoAfigures = []
+for string, [p0, p1, f0, f1] in dict_cases.items():
+  listPi = [0., 0.1, 0.5, 0.95]
+  dictPoA = {}
+  for pi in listPi:
+    #Mathematical models
+    mathModelMFG = ModelCoupledFBSDE(T, QAver, R0,  jumpFactor, A, K, pi, p0, p1, f0, f1, theta,C, S0, h1, h2,sig0, sig, alphaTarget, jumpModel, 1)
+    mathModelMFCagg = ModelCoupledFBSDE(T, QAver, R0,  jumpFactor, A, K, pi, p0, p1, f0, f1, theta,C, S0, h1, h2,sig0, sig, alphaTarget, jumpModel, 2)
+    #Storing MFG and MFCagg
+    listMathModel = [mathModelMFG, mathModelMFCagg]
+    listSolutionsPlayer1 = []
+    listSolutionsPlayer2 = []
+    for k in range(len(listMathModel)): 
+        #define the mathematical model
+        mathModel = listMathModel[k]
+        #method
+        if method in ['SumMultiStepReg', 'SumLocalReg']:
+            kerasModel = kerasModels(Net_hat, Net, method, 1, 1,layerSize_hat, layerSize, activation_hat, activation)
+        elif method in ['SumMultiStep', 'SumLocal', 'Osterlee']:
+            kerasModel = kerasModels(Net_hat, Net, method, 3, 4,layerSize_hat, layerSize, activation_hat, activation)
+        else:
+            kerasModel = kerasModels(Net_hat, Net, method, 2, 3,layerSize_hat, layerSize, activation_hat, activation)
+        #solver
+        if method == "Global":
+            solver = SolverGlobalFBSDE(mathModel,kerasModel, lRateY0, couplage)
+        elif method == "SumMultiStep":
+            solver= SolverMultiStepFBSDE(mathModel,kerasModel, lRateLoc, couplage)
+        elif method == "SumLocal":
+            solver=  SolverSumLocalFBSDE(mathModel,kerasModel, lRateLoc, couplage)
+        elif method == 'SumMultiStepReg':
+            solver = SolverGlobalMultiStepReg(mathModel,kerasModel, lRateReg, couplage)
+        elif method == 'SumLocalReg':
+            solver =  SolverGlobalSumLocalReg(mathModel,kerasModel, lRateReg, couplage)
+        elif method == 'Osterlee':
+            solver = SolverOsterleeFBSDE(mathModel,kerasModel, lRateLoc, couplage, coefOsterlee) 
+        #train and  get solution
+        hY0List, Y0List=  solver.train(batchSize,batchSize*10, num_epoch,num_epochExt)
+        #Plotting
+        solutionPlayer1 = MFGSolutionsFixedTrajectory(mathModel, kerasModel, method, dW0_arr, dW_arrPlayer1, dN, 'OFF')
+        solutionPlayer2 = MFGSolutionsFixedTrajectory(mathModel, kerasModel, method, dW0_arr, dW_arrPlayer2, dN, 'OFF')
+        #store solutions
+        listSolutionsPlayer1.append(solutionPlayer1)
+        listSolutionsPlayer2.append(solutionPlayer2)
+    #Simulate processes
+    #################################################
+    #Player 1
+    #MFG
+    listSolutionsPlayer1[0].simulateAllProcesses(NbSimulation)
+    listSolutionsPlayer1[0].computeTarget(NbSimulation)
+    #MFCagg
+    listSolutionsPlayer1[1].simulateAllProcesses(NbSimulation)
+    listSolutionsPlayer1[1].computeTarget(NbSimulation)
+    #Player2
+    #MFG
+    listSolutionsPlayer2[0].simulateAllProcesses(NbSimulation)
+    listSolutionsPlayer2[0].computeTarget(NbSimulation)
+    #MFCagg
+    listSolutionsPlayer2[1].simulateAllProcesses(NbSimulation)
+    listSolutionsPlayer2[1].computeTarget(NbSimulation)   
+    #Plots
+    ###############################################
+    for j in range(NbSimulation):
+      #Seasonalized consumption after equilibrium
+      ###########################################
+      fig, ax = plt.subplots(nrows = 2, ncols = 2 ,figsize=(12, 8))
+      ax[0,0].fill_between(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, 0, 1, where= listSolutionsPlayer1[0].R[j] < listSolutionsPlayer1[0].theta,
+                  color='green', alpha=0.2, transform=ax[0,0].get_xaxis_transform())
+      ax[0,0].plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].alphaTg[j] , color='tab:brown', label= r'$\alpha_{tg}$', linestyle = 'dashed')
+      #MFG
+      ax[0,0].plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].hQ[j] + listSolutionsPlayer1[0].alpha_hat[j] \
+              - listSolutionsPlayer1[0].QAver , label = 'MFG proj.', linewidth=2.2, color = 'dimgray')
+      ax[0,0].plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].Q[j] + listSolutionsPlayer1[0].alpha[j]\
+              - listSolutionsPlayer1[0].QAver, label = 'MFG player1', color = 'blue')
+      ax[0,0].plot(listSolutionsPlayer2[0].t*listSolutionsPlayer2[0].dt*24, listSolutionsPlayer2[0].Q[j] + listSolutionsPlayer2[0].alpha[j]\
+              - listSolutionsPlayer1[0].QAver, label = 'MFG player2', color = 'red')
+      #MFCagg
+      ax[0,0].plot(listSolutionsPlayer1[1].t*listSolutionsPlayer1[1].dt*24, listSolutionsPlayer1[1].hQ[j] + listSolutionsPlayer1[1].alpha_hat[j]\
+              - listSolutionsPlayer1[0].QAver, label = 'MFCagg proj.', linestyle='dotted', linewidth=2.2, color = 'dimgray')
+      ax[0,0].plot(listSolutionsPlayer1[1].t*listSolutionsPlayer1[1].dt*24, listSolutionsPlayer1[1].Q[j] + listSolutionsPlayer1[1].alpha[j]\
+              - listSolutionsPlayer1[0].QAver, label = 'MFCagg player1', linestyle='dotted', color = 'blue')
+      ax[0,0].plot(listSolutionsPlayer2[1].t*listSolutionsPlayer2[1].dt*24, listSolutionsPlayer2[1].Q[j] + listSolutionsPlayer2[1].alpha[j]\
+              - listSolutionsPlayer1[0].QAver, label = 'MFCagg player2', linestyle='dotted', color = 'red')
+      ax[0,0].title.set_text(r'$\tilde{Q} + \alpha$ (kW) / ' + string  + f' / pi = {pi}')
+      ax[0,0].legend(prop={'size': 8})
+      #Consumption after equilibrium
+      ############################################
+      ax[1,0].fill_between(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, 0, 1, where= listSolutionsPlayer1[0].R[j] < listSolutionsPlayer1[0].theta,
+                  color='green', alpha=0.2, transform=ax[1,0].get_xaxis_transform())
+      #MFG
+      ax[1,0].plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].hQ[j] + listSolutionsPlayer1[0].alpha_hat[j], label = f'MFG proj.', linewidth=2.2, color = 'dimgray')
+      ax[1,0].plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].Q[j] + listSolutionsPlayer1[0].alpha[j], label = f'MFG  player1', color = 'blue')
+      ax[1,0].plot(listSolutionsPlayer2[0].t*listSolutionsPlayer2[0].dt*24, listSolutionsPlayer2[0].Q[j] + listSolutionsPlayer2[0].alpha[j], label = f'MFG  player2', color = 'red')
+      #MFCagg
+      ax[1,0].plot(listSolutionsPlayer1[1].t*listSolutionsPlayer1[1].dt*24, listSolutionsPlayer1[1].hQ[j] + listSolutionsPlayer1[1].alpha_hat[j], label = f'MFCagg proj. ', linestyle='dotted', linewidth=2.2, color = 'dimgray')
+      ax[1,0].plot(listSolutionsPlayer1[1].t*listSolutionsPlayer1[1].dt*24, listSolutionsPlayer1[1].Q[j] + listSolutionsPlayer1[1].alpha[j], label = f'MFCagg player1', linestyle='dotted', color = 'blue')
+      ax[1,0].plot(listSolutionsPlayer2[1].t*listSolutionsPlayer2[1].dt*24, listSolutionsPlayer2[1].Q[j] + listSolutionsPlayer2[1].alpha[j], label = f'MFCagg player2', linestyle='dotted', color = 'red')
+      ax[1,0].title.set_text(r'$Q + \alpha$ (kW) / ' + string + f' / pi = {pi}')
+      ax[1,0].legend(prop={'size': 8})
+      #Cumulated deviation
+      ##########################################
+      #MFG
+      ax[0,1].plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].hS[j], label = f'MFG hS', linewidth=2.2, color = 'dimgray')
+      ax[0,1].plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].S[j], label = f'MFG S player1', color = 'blue')
+      ax[0,1].plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer2[0].S[j], label = f'MFG S player2', color = 'red')
+      #MFCagg
+      ax[0,1].plot(listSolutionsPlayer1[1].t*listSolutionsPlayer1[1].dt*24, listSolutionsPlayer1[1].hS[j], label = f'MFCagg hS', linestyle='dotted', linewidth=2.2, color = 'dimgray')
+      ax[0,1].plot(listSolutionsPlayer1[1].t*listSolutionsPlayer1[1].dt*24, listSolutionsPlayer1[1].S[j], label = f'MFCagg S player1', linestyle='dotted', color = 'blue')
+      ax[0,1].plot(listSolutionsPlayer1[1].t*listSolutionsPlayer1[1].dt*24, listSolutionsPlayer2[1].S[j], label = f'MFCagg S player2', linestyle='dotted', color = 'red')
+      ax[0,1].title.set_text(r'$S$ / ' + string  + f' / pi = {pi}')
+      ax[0,1].legend(prop={'size': 8})
+      #Price
+      #########################################
+      ax[1,1].fill_between(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, 0, 1, where= listSolutionsPlayer1[0].R[j] < listSolutionsPlayer1[0].theta,
+                  color='green', alpha=0.2, transform=ax[1,1].get_xaxis_transform())
+      #MFG
+      ax[1,1].plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].price(pi, 0)[j], label = f'MFG price without alpha')
+      ax[1,1].plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].price(pi, listSolutionsPlayer1[0].alpha_hat)[j],\
+              label = f'MFG price')
+      #MFCagg
+      ax[1,1].plot(listSolutionsPlayer1[1].t*listSolutionsPlayer1[1].dt*24, listSolutionsPlayer1[1].price(pi, 0)[j], label = f'MFCagg price without alpha', linestyle='dotted')
+      ax[1,1].plot(listSolutionsPlayer1[1].t*listSolutionsPlayer1[1].dt*24, listSolutionsPlayer1[1].price(pi, listSolutionsPlayer1[1].alpha_hat)[j],\
+              label = f'MFCagg price', linestyle='dotted')
+      ax[1,1].title.set_text('price (euros) / ' + string + f' / pi = {pi}')
+      ax[1,1].legend(prop={'size': 8})
+      for ax in ax.flat:
+        ax.set(xlabel='time (hours)')
+      plt.legend()
+      plt.show()
+      dictFiguresPostTrain[f'({j},{pi}, {string})'] = fig
+    #Compute Price of Anarchy
+    #MFG 0 in list
+    listSolutionsPlayer1[0].simulateAllProcesses(nbSimul)
+    listSolutionsPlayer1[0].computeTarget(nbSimul)
+    MFGPlayer, stdMFGPlayer = listSolutionsPlayer1[0].objectiveFunction()
+    #MFCagg 1 in list
+    listSolutionsPlayer1[1].simulateAllProcesses(nbSimul)
+    listSolutionsPlayer1[1].computeTarget(nbSimul)
+    MFCaggPlayer, stdMFCaggPlayer = listSolutionsPlayer1[1].objectiveFunction()  
+    #####################################
+    PoA = MFGPlayer / MFCaggPlayer 
+    dictPoA[pi] = ['{0:.3f}'.format(MFGPlayer)  + '(+/- {0:.3f}'.format(1.96*stdMFGPlayer/np.sqrt(nbSimul)) + ')',\
+                  '{0:.3f}'.format(MFCaggPlayer) + '(+/- {0:.3f}'.format(1.96*stdMFCaggPlayer/np.sqrt(nbSimul)) + ')', PoA]
+    #####################################
+  dfPoA = pd.DataFrame(dictPoA, index = ['MFG players', 'MFCagg players', 'PoA'])
+  print('The price of Anarchy for this model is: \n', dfPoA)
+
+  #Display dataframe
+  fig4, ax4 = plt.subplots(figsize = (8, 2))
+  ax4.table(cellText = dfPoA.values,
+            rowLabels = dfPoA.index,
+            colLabels =dfPoA.columns,
+            loc = "center")
+  ax4.set_title(string)
+  ax4.axis('off')
+  plt.show()
+  listPoAfigures.append(fig4)
+########################################################################################################################################
+#save all figures:
+# name your Pdf file
+filename = "simulations_all_cases.pdf"  
+pdf = PdfPages(filename)
+for j in range(NbSimulation): 
+  # and saving the files
+  pdf.savefig(listFiguresPreTrain[j]) 
+  for string in dict_cases.keys():
+    for pi in listPi:
+      # and saving the files
+      pdf.savefig(dictFiguresPostTrain[f'({j},{pi}, {string})'])
+for fig in listPoAfigures:
+  # and saving the files
+  pdf.savefig(fig)  
+pdf.close()
+##########################################################################################################################################
+p = PdfPages('PoA.pdf')
+for fig in listPoAfigures:
+  # and saving the files
+  p.savefig(fig) 
+p.close()
