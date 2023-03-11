@@ -1,5 +1,6 @@
 import numpy as np
 import tensorflow as tf
+from scipy.integrate import quad
 
 
 
@@ -111,9 +112,10 @@ class ModelCoupledFBSDE:
 ############################################################################################################################
 # Variance Gamma Model
 class VGmodel:
-    def __init__(self, T, N, r, theta, kappa, sigmaJ, K, x0):
+    def __init__(self, T, N, r, theta, kappa, sigmaJ, sigma, K, x0, epsilon):
         self.T = T                                                                         #Maturity
         self.r = r                                                                         #Interest rate
+        self.sig = sigma                                                                   #volatility of diffusion part
         self.sigJ = sigmaJ                                                                 #volatility of small jumps
         self.theta = theta                                                                 #the drift of the BM approximating small jumps
         self.kappa = kappa                                                                 #variance of the Gamma process
@@ -121,26 +123,39 @@ class VGmodel:
         self.N = N                                                                         #steps number
         self.dt = T/N                                                                      #steps length
         self.x0 = x0                                                                       #spot price
+        self.eps = epsilon                                                                 #epsilon    
         self.correction = -tf.math.log(1 - theta * kappa - kappa/2 * sigmaJ**2 ) /kappa    #correction of the drift of the jump part
-    
+        #Levy measure
+        self.mu = lambda z: np.exp((self.theta*z)/self.sigJ**2)*np.exp(-(np.sqrt(2/self.kappa + self.theta**2/self.sigJ**2))*abs(z)/(self.sigJ))/(self.kappa*abs(z))
+        self.mu_sig =  lambda z: abs(z)*np.exp((self.theta*z)/self.sigJ**2)*np.exp(-(np.sqrt(2/self.kappa + self.theta**2/self.sigJ**2))*abs(z)/(self.sigJ))/(self.kappa)
+        self.lam = quad(self.mu, self.eps, np.inf) + quad(self.mu, -np.inf, -self.eps)  
+        self.lam = self.lam[0]                                        
+        self.sigEps = quad(self.mu_sig, -self.eps, self.eps)[0]                             #compute truncated volatility 
+        self.maxJumps = np.amax(np.random.poisson(self.lam*self.dt, 10**5))+1               #maximum number of Jumps
 
     #initialize
     def init(self, batchSize):
-        self.iStep = 1                                                                      #first step
+        self.iStep = 0                                                                     
         self.batchSize = batchSize
         self.X = self.x0*tf.ones([batchSize])
 
     
     #Go to next step
-    def oneStepFrom(self, gauss, gamma):
-        self.X = self.x0*tf.exp((self.r - self.correction)*self.iStep*self.dt + tf.math.multiply(self.theta, gamma) + self.sigJ*tf.sqrt(gamma)*gauss)
+    def oneStepFrom(self, dW, gaussJ):
+        self.X = self.x0*tf.exp((self.r - self.correction)*self.iStep*self.dt + (self.sig + self.sigEps)*dW + gaussJ)
         self.iStep += 1
     
     #jumps
-    def Gamma(self):
-        alpha = (self.iStep*self.dt/self.kappa)*tf.ones([self.batchSize])
-        beta = tf.ones([self.batchSize])
-        return tf.random.gamma([1], alpha, beta)[0]*self.kappa ,  self.iStep*self.dt
+    def jumps(self):
+      dN = tf.random.poisson([self.batchSize], self.lam*self.dt, dtype = tf.float32)
+      bindN = tf.sequence_mask(dN, self.maxJumps)
+      gammaSim = tf.random.gamma([self.batchSize, self.maxJumps], self.iStep*self.dt/self.kappa, 1)*self.kappa
+      gaussSim = tf.random.normal([self.batchSize, self.maxJumps], 0, 1)
+      simulations =  tf.math.multiply(self.theta, gammaSim) + self.sigJ*tf.sqrt(gammaSim)*gaussSim
+      listJumps = tf.where(bindN, simulations, tf.zeros([self.batchSize, self.maxJumps]))
+      unstackedList = tf.unstack(listJumps, axis = 1)
+      gaussJ = tf.reduce_sum(listJumps, axis = 1)
+      return dN, unstackedList, gaussJ
 
     #Driver
     def f(self, Y):
@@ -151,8 +166,8 @@ class VGmodel:
         return tf.maximum(X-self.K, 0)
 
     #Get states variables to inject in the nn
-    def getStates(self):
-        return self.iStep*self.dt, self.X, self.g(self.X)
+    def getStates(self, Y, dN, listJumps, gaussJ):
+        return self.iStep*self.dt*tf.ones([self.batchSize]), self.X, self.g(self.X), Y*tf.ones([self.batchSize]), (self.iStep>0)*dN, *[(self.iStep>0)*x for x in listJumps], (self.iStep>0)*gaussJ
 
 # Merton jump model
 ############################################################################################################################
