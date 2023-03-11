@@ -76,7 +76,7 @@ class ModelCoupledFBSDE:
     #Compute stochastic alphaTarget
     def calphaTarget(self):
         if self.jumpModel == 'stochastic':
-            return self.alphaTarget*(self.hQ - self.QAver[0])
+            return self.alphaTarget*(self.hQ)
         return self.alphaTarget*tf.ones([self.batchSize])
 
     # hY  Y value for BSDE
@@ -103,7 +103,7 @@ class ModelCoupledFBSDE:
     def getProjectedStates( self ):
         return self.iStep*self.dt, self.hQ, self.hS, self.R
 
-    # get  states with out time 
+    # get  states 
     def getAllStates( self ):
         return  self.iStep*self.dt, self.Q, self.S, self.hQ, self.hS, self.R
 
@@ -142,7 +142,7 @@ class VGmodel:
     
     #Go to next step
     def oneStepFrom(self, dW, gaussJ):
-        self.X = self.x0*tf.exp((self.r - self.correction)*self.iStep*self.dt + (self.sig + self.sigEps)*dW + gaussJ)
+        self.X = self.x0*tf.exp((self.r - self.correction - 0.5*(sig + sigEps)*(sig + sigEps))*self.iStep*self.dt + (self.sig + self.sigEps)*dW + gaussJ)
         self.iStep += 1
     
     #jumps
