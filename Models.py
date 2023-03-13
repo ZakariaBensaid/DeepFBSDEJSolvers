@@ -137,22 +137,24 @@ class VGmodel:
     def init(self, batchSize):
         self.iStep = 0                                                                     
         self.batchSize = batchSize
+        self.expX = tf.ones([batchSize])
         self.X = self.x0*tf.ones([batchSize])
 
     
     #Go to next step
     def oneStepFrom(self, dW, gaussJ):
-        self.X = self.x0*tf.exp((self.r - self.correction - 0.5*(self.sig + self.sigEps)*(self.sig + self.sigEps))*self.iStep*self.dt + (self.sig + self.sigEps)*dW + gaussJ)
+        self.expX = self.expX*tf.exp((self.r - self.correction - 0.5*(self.sig + self.sigEps)*(self.sig + self.sigEps))*self.dt + (self.sig + self.sigEps)*dW + gaussJ)
+        self.X = self.x0*self.expX
         self.iStep += 1
     
     #jumps
     def jumps(self):
       dN = tf.random.poisson([self.batchSize], self.lam*self.dt, dtype = tf.float32)
       bindN = tf.sequence_mask(dN, self.maxJumps)
-      gammaSim = tf.random.gamma([self.batchSize, self.maxJumps], self.iStep*self.dt/self.kappa, 1)*self.kappa
+      gammaSim = tf.random.gamma([self.batchSize, self.maxJumps], self.dt/self.kappa, self.kappa)
       gaussSim = tf.random.normal([self.batchSize, self.maxJumps], 0, 1)
       simulations =  tf.math.multiply(self.theta, gammaSim) + self.sigJ*tf.sqrt(gammaSim)*gaussSim
-      listJumps = tf.where(bindN, simulations, tf.zeros([self.batchSize, self.maxJumps]))
+      listJumps = tf.where(tf.math.logical_and(bindN, tf.math.abs(simulations) > self.eps), simulations, tf.zeros([self.batchSize, self.maxJumps]))
       unstackedList = tf.unstack(listJumps, axis = 1)
       gaussJ = tf.reduce_sum(listJumps, axis = 1)
       return dN, unstackedList, gaussJ
