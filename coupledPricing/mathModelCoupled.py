@@ -51,7 +51,7 @@ class MertonJumpModel:
         self.expX = self.expX*tf.exp((self.r - 0.5*self.sig*self.sig - self.lam*(tf.exp(self.muJ  + self.sigJ*self.sigJ*0.5) - 1))*self.dt + self.sig*dW + gaussJ) 
         self.F += self.func(Y - self.A())*self.dt
         self.Xbar = self.x0*self.expX
-        self.X = self.x0*self.expX + self.F
+        self.X = self.Xbar + self.F
         self.iStep += 1
 
     #jumps
