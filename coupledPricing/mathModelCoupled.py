@@ -28,12 +28,12 @@ class MertonJumpModel:
     
     #Analytic approach
     #BS closed formula
-    def BS(self, rbs, sigbs):
+    def BS(self, rBS, sigBS):
         shape = rbs.shape[0]
         X = tf.stack([self.Xbar]*shape, axis = 1)
-        d1 = (tf.math.log(X/self.K) + (rbs + sigbs**2/2)*(self.T- self.iStep*self.dt))/(sigbs*tf.sqrt(self.T- self.iStep*self.dt))
-        d2 = (tf.math.log(X/self.K) + (rbs - sigbs**2/2)*(self.T- self.iStep*self.dt))/(sigbs*tf.sqrt(self.T- self.iStep*self.dt))
-        return X*self.dist.cdf(d1) - self.K*tf.exp(-rbs*(self.T- self.iStep*self.dt))*self.dist.cdf(d2) 
+        d1 = (tf.math.log(X/self.K) + (rBS + sigBS**2/2)*(self.T- self.iStep*self.dt))/(sigbs*tf.sqrt(self.T- self.iStep*self.dt))
+        d2 = (tf.math.log(X/self.K) + (rBS - sigBS**2/2)*(self.T- self.iStep*self.dt))/(sigbs*tf.sqrt(self.T- self.iStep*self.dt))
+        return X*self.dist.cdf(d1) - self.K*tf.exp(-rBS*(self.T- self.iStep*self.dt))*self.dist.cdf(d2) 
 
     #Merton closed formula
     def A(self):
