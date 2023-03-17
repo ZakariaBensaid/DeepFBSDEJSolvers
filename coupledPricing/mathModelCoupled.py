@@ -1,5 +1,7 @@
 import numpy as np
 import tensorflow as tf
+import tensorflow_probability as tfp
+tfd = tfp.distributions
 
 class MertonJumpModel:
     def __init__(self, T, N, r, muJ, sigmaJ, sigma, lam, K, x0, maxJumps, func):
