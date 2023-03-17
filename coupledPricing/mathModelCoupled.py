@@ -30,22 +30,24 @@ class MertonJumpModel:
     
     #Analytic approach
     #BS closed formula
-    def BS(self, rBS, sigBS):
+    def BS(self, rbs, sigbs):
         shape = rbs.shape[0]
         X = tf.stack([self.Xbar]*shape, axis = 1)
-        d1 = (tf.math.log(X/self.K) + (rBS + sigBS**2/2)*(self.T- self.iStep*self.dt))/(sigBS*tf.sqrt(self.T- self.iStep*self.dt))
-        d2 = (tf.math.log(X/self.K) + (rBS - sigBS**2/2)*(self.T- self.iStep*self.dt))/(sigBS*tf.sqrt(self.T- self.iStep*self.dt))
-        return X*self.dist.cdf(d1) - self.K*tf.exp(-rBS*(self.T- self.iStep*self.dt))*self.dist.cdf(d2) 
+        d1 = (tf.math.log(X/self.K) + (rbs + sigbs**2/2)*(self.T- self.iStep*self.dt))/(sigbs*tf.sqrt(self.T- self.iStep*self.dt))
+        d2 = (tf.math.log(X/self.K) + (rbs - sigbs**2/2)*(self.T- self.iStep*self.dt))/(sigbs*tf.sqrt(self.T- self.iStep*self.dt))
+        return X*self.dist.cdf(d1) - self.K*tf.exp(-rbs*(self.T- self.iStep*self.dt))*self.dist.cdf(d2) 
 
     #Merton closed formula
     def A(self):
-        I = tf.range(100, dtype = tf.float32)
-        rBS = self.r - self.lam*(tf.exp(self.muJ  + self.sigJ*self.sigJ*0.5) - 1) + I*(self.muJ + 0.5*self.sigJ*self.sigJ)/(self.T - self.iStep*self.dt)
-        sigBS = tf.sqrt(self.sig**2 + I*(self.sigJ**2)/(self.T - self.iStep*self.dt))
-        BSincrements = self.BS(rBS, sigBS)
-        lam2 = self.lam*tf.exp(self.muJ + 0.5*self.sigJ**2)
-        coefficients = tf.exp(-lam2*(self.T - self.iStep*self.dt))*((lam2*(self.T - self.iStep*self.dt))**I)/tf.exp(tf.math.lgamma(I + 1))
-        return tf.reduce_sum(coefficients*BSincrements, axis = 1)
+        if self.iStep < self.N :
+          I = tf.range(20, dtype = tf.float32)
+          rBS = self.r - self.lam*(tf.exp(self.muJ  + self.sigJ*self.sigJ*0.5) - 1) + I*(self.muJ + 0.5*self.sigJ*self.sigJ)/(self.T - self.iStep*self.dt)
+          sigBS = tf.sqrt(self.sig**2 + I*(self.sigJ**2)/(self.T - self.iStep*self.dt))
+          BSincrements = self.BS(rBS, sigBS)
+          lam2 = self.lam*tf.exp(self.muJ + 0.5*self.sigJ**2)
+          coefficients = tf.exp(-lam2*(self.T - self.iStep*self.dt))*((lam2*(self.T - self.iStep*self.dt))**I)/tf.exp(tf.math.lgamma(I + 1))
+          return tf.reduce_sum(coefficients*BSincrements, axis = 1)
+        return self.g(self.Xbar)
 
   
     #Go to next step
@@ -53,7 +55,7 @@ class MertonJumpModel:
         self.expX = self.expX*tf.exp((self.r - 0.5*self.sig*self.sig - self.lam*(tf.exp(self.muJ  + self.sigJ*self.sigJ*0.5) - 1))*self.dt + self.sig*dW + gaussJ) 
         self.F += self.func(Y - self.A())*self.dt
         self.Xbar = self.x0*self.expX
-        self.X = self.Xbar + self.F
+        self.X = self.x0*self.expX + self.F
         self.iStep += 1
 
     #jumps

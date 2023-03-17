@@ -160,11 +160,11 @@ class SolverSumLocalFBSDE(SolverBase):
                 # target
                 toAdd = self.mathModel.dt*self.mathModel.f(YPrev) - Z0Prev*dW - GamPrev + tf.reduce_mean(GamPrev)
                 # next step
-                self.mathModel.oneStepFrom(dW, gaussJ, YPrev, APrev)
+                self.mathModel.oneStepFrom(dW, gaussJ, YPrev)
                 # jump and compensation
                 dN, listJumps, gaussJ  = self.mathModel.jumps()
                 YInput = YPrev
-                if (istep == (self.mathModel.N-1)):
+                if (istep == (self.mathModel.N - 1)):
                     YNext = self.mathModel.g(self.mathModel.X)
                 else:
                     YNext, Z0Prev, GamPrev = self.modelKeras(self.mathModel.getStates(YInput, dN, listJumps, gaussJ))
@@ -226,11 +226,11 @@ class SolverGlobalSumLocalReg(SolverBase):
                 dW =  np.sqrt(self.mathModel.dt)*gaussian 
                 # Next step
                 Yinput = YPrev
-                self.mathModel.oneStepFrom(dW, gaussJ, YPrev, APrev)
+                self.mathModel.oneStepFrom(dW, gaussJ, YPrev)
                 # jumps
                 dN, listJumps, gaussJ  = self.mathModel.jumps()
                 # values
-                if (istep == (self.mathModel.N-1)):
+                if (istep == (self.mathModel.N - 1)):
                     YNext = self.mathModel.g(self.mathModel.X)
                 else:
                     YNext, = self.modelKeras(self.mathModel.getStates(YInput, dN, listJumps, gaussJ))
