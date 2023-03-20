@@ -386,7 +386,7 @@ class SolverOsterleeFBSDE(SolverBase):
                 # next t step
                 YInput = Y
                 self.mathModel.oneStepFrom(dW, gaussJ, Y)
-            Y0 += self.mathModel.g(self.mathModel.X)
+            Y0 += self.mathModel.g(self.mathModel.Xbar)
             # initial value
             Y = tf.reduce_mean(Y0)
             #Compute error
