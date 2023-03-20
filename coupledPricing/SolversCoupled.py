@@ -331,7 +331,7 @@ class SolverGlobalMultiStepReg(SolverBase):
 
 class SolverOsterleeFBSDE(SolverBase):
     def __init__(self, mathModel, modelKerasU, modelKerasZ , modelKerasGam,  lRate, lamCoef):
-        super().__init__(mathModel, mathModel, modelKerasU, modelKerasZ , modelKerasGam,  lRate)
+        super().__init__(mathModel, modelKerasU, modelKerasZ , modelKerasGam,  lRate)
         self.lamCoef = lamCoef
 
     def train(self,  batchSize,  batchSizeVal, num_epoch, num_epochExt):
