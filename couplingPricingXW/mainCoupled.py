@@ -7,8 +7,10 @@ from mathModelCoupled import MertonJumpModel
 from SolversCoupled import SolverGlobalFBSDE #, SolverMultiStepFBSDE,SolverSumLocalFBSDE, SolverGlobalMultiStepReg, SolverGlobalSumLocalReg, SolverOsterleeFBSDE
 from ClosedFormulaMerton import Option_param, Merton_process, Merton_pricer
 import argparse
-import matplotlib.pyplot as plt
 import sys 
+import matplotlib as mpl
+mpl.use('Agg')
+import matplotlib.pyplot as plt
 
 class Net( tf.keras.Model):
     def __init__( self, bY0, nbNeurons, activation= tf.nn.tanh):
