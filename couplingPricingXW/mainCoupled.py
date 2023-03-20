@@ -44,6 +44,7 @@ parser.add_argument('--activation',  type= str, default="tanh")
 parser.add_argument('--coefOsterlee', type= float, default = 1000)
 parser.add_argument('--nbSimul', type= int, default = 5)
 parser.add_argument('--aLin', type= float, default = 0.1)
+parser.add_argument('--lam', type= float, default = 1.)
     
 args = parser.parse_args()
 print("Args ", args)
@@ -74,14 +75,16 @@ nbSimul = args.nbSimul
 print('number of trajectories', nbSimul)
 aLin = args.aLin
 print("Linear coupling forward backward ", aLin)
+lam  = args.lam
+print("Jump intensity", lam)
 # Layers
 ######################################
 layerSize = nbNeuron*np.ones((nbLayer,), dtype=np.int32) 
 # parameter models
 ######################################
 # parameter models
-dict_parameters = {'T':1 , 'N':50, 'r':0.1, 'sig': 0.3, 'lam':1, 'muJ': 0., 'sigJ': 0.2, 'K': 0.9, 'x0': 1}
-T, N, r, sig, lam, muJ, sigJ, K, x0 = dict_parameters.values()
+dict_parameters = {'T':1 , 'N':50, 'r':0.1, 'sig': 0.3,  'muJ': 0., 'sigJ': 0.2, 'K': 0.9, 'x0': 1}
+T, N, r, sig,  muJ, sigJ, K, x0 = dict_parameters.values()
 maxJumps = np.amax(np.random.poisson(lam*T/N, size = 10**7)) + 1
 print("maxJumps",maxJumps) 
 print('Maximum number of Jumps:', maxJumps)
