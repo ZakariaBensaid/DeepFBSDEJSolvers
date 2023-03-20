@@ -47,6 +47,7 @@ parser.add_argument('--coefOsterlee', type= float, default = 1000)
 parser.add_argument('--nbSimul', type= int, default = 5)
 parser.add_argument('--aLin', type= float, default = 0.1)
 parser.add_argument('--lam', type= float, default = 1.)
+parser.add_argument('--N',  type= int, default = 50)
     
 args = parser.parse_args()
 print("Args ", args)
@@ -79,14 +80,16 @@ aLin = args.aLin
 print("Linear coupling forward backward ", aLin)
 lam  = args.lam
 print("Jump intensity", lam)
+N=  args.N
+print(" N ", N)
 # Layers
 ######################################
 layerSize = nbNeuron*np.ones((nbLayer,), dtype=np.int32) 
 # parameter models
 ######################################
 # parameter models
-dict_parameters = {'T':1 , 'N':50, 'r':0.1, 'sig': 0.3,  'muJ': 0., 'sigJ': 0.2, 'K': 0.9, 'x0': 1}
-T, N, r, sig,  muJ, sigJ, K, x0 = dict_parameters.values()
+dict_parameters = {'T':1 ,  'r':0.1, 'sig': 0.3,  'muJ': 0., 'sigJ': 0.2, 'K': 0.9, 'x0': 1}
+T,  r, sig,  muJ, sigJ, K, x0 = dict_parameters.values()
 maxJumps = np.amax(np.random.poisson(lam*T/N, size = 10**7)) + 1
 print("maxJumps",maxJumps) 
 print('Maximum number of Jumps:', maxJumps)
@@ -111,55 +114,36 @@ closedformula = Merton.closed_formula()
 print(closedformula)
 listLoss = []
 listProcesses = []
-fig, ax = plt.subplots(figsize=(10, 6))
-for method in ['Global', 'SumMultiStep', 'SumLocal', 'SumLocalReg', 'SumMultiStepReg', 'Osterlee']:
-#for method in ['Global']:
-  # math model
-  ##########################
-  mathModel = MertonJumpModel(T, N, r, muJ, sigJ, sig, lam, K, x0, maxJumps, func)
+# math model
+##########################
+mathModel = MertonJumpModel(T, N, r, muJ, sigJ, sig, lam, K, x0, maxJumps, func)
+saveFig = "GLOBAL_BSize_"+str(batchSize)+"_lam_"+str(lam)+ "_N_"+str(N) +"_"
+# DL model
+##########################
+if activation == 'tanh':
+    activ = tf.nn.tanh
+elif activation == 'relu':
+    activ = tf.nn.relu
+elif activation == 'sigmoid':
+    activ = tf.math.sigmoid
 
-  # DL model
-  ##########################
-  if activation == 'tanh':
-      activ = tf.nn.tanh
-  elif activation == 'relu':
-      activ = tf.nn.relu
-  elif activation == 'sigmoid':
-      activ = tf.math.sigmoid
-      
-  #if method in ['SumMultiStepReg', 'SumLocalReg']:
-  #    kerasModel = Net(method, 1, layerSize, activation)
-  #elif method in ['SumMultiStep', 'SumLocal', 'Osterlee']:
-  #    kerasModel = Net(method, 3, layerSize, activation)
-  #else:
-  #    kerasModel = Net(method, 2, layerSize, activation)
-  kerasModelZ = Net(1, layerSize, activation)
-  kerasModelGam = Net(0, layerSize, activation)
-  
-  # solver
-  #########################
-  if method == "Global":
-      solver = SolverGlobalFBSDE(mathModel,kerasModelZ,kerasModelGam, lRateY0)
-  """
-  elif method == "SumMultiStep":
-      solver= SolverMultiStepFBSDE(mathModel,kerasModel, lRateLoc)
-  elif method == "SumLocal":
-      solver=  SolverSumLocalFBSDE(mathModel,kerasModel, lRateLoc)
-  elif method == 'SumMultiStepReg':
-      solver = SolverGlobalMultiStepReg(mathModel,kerasModel, lRateReg)
-  elif method == 'SumLocalReg':
-      solver =  SolverGlobalSumLocalReg(mathModel,kerasModel, lRateReg)
-  elif method == 'Osterlee':
-      solver = SolverOsterleeFBSDE(mathModel,kerasModel, lRateOsterlee, coefOsterlee)
-  """
-  
-  # train and  get solution
-  Y0List=  solver.train(batchSize,batchSize*10, num_epoch,num_epochExt )
-  print('Y0',Y0List[-1])
-  # Store loss
-  listLoss.append(solver.lossList)  
-  ax.plot(Y0List, label = f"Y0 DL {method}")
+kerasModelZ = Net(1, layerSize, activation)
+kerasModelGam = Net(0, layerSize, activation)
+
+# solver
+#########################
+solver = SolverGlobalFBSDE(mathModel,kerasModelZ,kerasModelGam, lRateY0)
+
+
+# train and  get solution
+Y0List=  solver.train(batchSize,batchSize*10, num_epoch,num_epochExt )
+print('Y0',Y0List[-1])
+# Store loss
+listLoss.append(solver.lossList)  
+fig, ax = plt.subplots(figsize=(10, 6))
+ax.plot(Y0List, label = "Y0 DL ")
 ax.plot(closedformula*np.ones(num_epochExt), label = 'Y0 closed formula', linestyle = 'dashed')
 ax.grid()
 plt.legend()
-plt.show()
+print("saveFig" , saveFig)
+plt.savefig(saveFig+".png")
