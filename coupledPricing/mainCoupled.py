@@ -49,8 +49,6 @@ if activation not in ['tanh', 'relu']:
 print('activation', activation)
 coefOsterlee = args.coefOsterlee
 print('Osterlee coefficient', coefOsterlee)
-nbSimul = args.nbSimul
-print('number of trajectories', nbSimul)
 aLin = args.aLin
 print('Linear coupling forward backward', aLin)
 limit = args.limit
