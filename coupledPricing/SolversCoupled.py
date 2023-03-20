@@ -214,7 +214,7 @@ class SolverGlobalSumLocalReg(SolverBase):
             # Target
             error = 0.
             # get back Y
-            YPrev, = self.modelKerasU(tf.stack([tf.zeros([nbSimul], dtype= tf.float32) , X], axis=-1))[:,0]
+            YPrev = self.modelKerasU(tf.stack([tf.zeros([nbSimul], dtype= tf.float32) , X], axis=-1))[:,0]
             for iStep in range(self.mathModel.N):
                 # target
                 toAdd = - self.mathModel.dt* self.mathModel.f(YPrev)
@@ -229,7 +229,7 @@ class SolverGlobalSumLocalReg(SolverBase):
                 if (iStep == (self.mathModel.N - 1)):
                     YNext = self.mathModel.g(X)
                 else:
-                    YNext, = self.modelKerasU(tf.stack([iStep*tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))[:,0]
+                    YNext = self.modelKerasU(tf.stack([iStep*tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))[:,0]
                 error = error +  tf.reduce_mean(tf.square(YPrev- YNext  + toAdd))
                 YPrev = YNext
             return error
@@ -255,7 +255,7 @@ class SolverGlobalSumLocalReg(SolverBase):
             end_time = time.time()
             rtime = end_time-start_time 
             objError = regressOptim(batchSizeVal)
-            self.mathModel.init(1)
+            X = self.mathModel.init(1)
             Y0 = self.modelKerasU( tf.stack([tf.zeros([1], dtype= tf.float32) , X], axis=-1))[0,0]
             print(" Error",objError.numpy(),  " took %5.3f s" % rtime, "Y0 sofar ",Y0.numpy(), 'epoch', iout)
             self.listY0.append(Y0.numpy())
@@ -282,7 +282,7 @@ class SolverGlobalMultiStepReg(SolverBase):
             listOfForward = []
             for iStep in range(self.mathModel.N): 
                 # get back Y
-                Y, = self.modelKerasU(tf.stack([iStep*tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))[:,0]
+                Y = self.modelKerasU(tf.stack([iStep*tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))[:,0]
                 # listforward
                 listOfForward.append(Y)                 
                 # to Add
@@ -321,7 +321,7 @@ class SolverGlobalMultiStepReg(SolverBase):
             end_time = time.time()
             rtime = end_time-start_time 
             objError = regressOptim(batchSizeVal)
-            self.mathModel.init(1)
+            X = self.mathModel.init(1)
             Y0 = self.modelKerasU( tf.stack([tf.zeros([1], dtype= tf.float32) , X], axis=-1))[0,0]
             print(" Error",objError.numpy(),  " took %5.3f s" % rtime, "Y0 sofar ",Y0.numpy(), 'epoch', iout)
             self.listY0.append(Y0.numpy())
