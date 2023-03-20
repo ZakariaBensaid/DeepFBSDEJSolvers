@@ -82,7 +82,7 @@ closedformula = Merton.closed_formula(limit)
 print('Merton real price:', closedformula)
 # Train
 #######################################
-closedformula = Merton.closed_formula()
+closedformula = Merton.closed_formula(limit)
 print(closedformula)
 listLoss = []
 listProcesses = []
