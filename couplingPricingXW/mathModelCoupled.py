@@ -34,11 +34,12 @@ class MertonJumpModel:
 
     #Merton closed formula
     def A(self, iStep, X):
+        iSize =30
         if iStep < self.N :
-          I = tf.range(30, dtype = tf.float32)
+          I = tf.range(iSize, dtype = tf.float32)
           rBS = tf.tile(tf.expand_dims(self.r - self.lam*(tf.exp(self.muJ  + self.sigJ*self.sigJ*0.5) - 1) + I*(self.muJ + 0.5*self.sigJ*self.sigJ)/(self.T - iStep*self.dt), axis=0),[tf.shape(X)[0],1])
           sigBS = tf.tile(tf.expand_dims(tf.sqrt(self.sig**2 + I*(self.sigJ**2)/(self.T - iStep*self.dt)), axis=0),[tf.shape(X)[0],1])
-          BSincrements = self.BS(iStep,tf.tile(tf.expand_dims(X, axis=-1),[1,20]) , rBS, sigBS)
+          BSincrements = self.BS(iStep,tf.tile(tf.expand_dims(X, axis=-1),[1,iSize]) , rBS, sigBS)
           lam2 = self.lam*tf.exp(self.muJ + 0.5*self.sigJ**2)
           coefficients = tf.tile(tf.expand_dims(tf.exp(-lam2*(self.T - iStep*self.dt))*((lam2*(self.T - iStep*self.dt))**I)/tf.exp(tf.math.lgamma(I + 1)), axis=0),[tf.shape(X)[0],1])
           return tf.reduce_sum(coefficients*BSincrements, axis = 1)
