@@ -7,25 +7,24 @@ class SolverBase:
     # mathModel          Math model
     # modelKeras         Keras model 
     # lRate              Learning rate
-    def __init__(self, mathModel, modelKerasU, modelKerasZ , modelKerasGam,  lRate):
+    def __init__(self, mathModel, modelKerasUZ , modelKerasGam,  lRate):
         # to store les different networks
         self.mathModel = mathModel
-        self.modelKerasU = modelKerasU
-        self.modelKerasZ= modelKerasZ
-        self.modelKerasGam= modelKerasGam 
-        self.lRate= lRate
+        self.modelKerasUZ = modelKerasUZ
+        self.modelKerasGam = modelKerasGam 
+        self.lRate = lRate
 
 class SolverGlobalFBSDE(SolverBase):
-    def __init__(self, mathModel, modelKerasU, modelKerasZ , modelKerasGam,  lRate):
-        super().__init__(mathModel, modelKerasU, modelKerasZ , modelKerasGam,  lRate)
+    def __init__(self, mathModel, modelKerasUZ , modelKerasGam,  lRate):
+        super().__init__(mathModel, modelKerasUZ , modelKerasGam,  lRate)
         
     def train(self,  batchSize,  batchSizeVal, num_epoch, num_epochExt):
         @tf.function
         def optimizeBSDE( nbSimul):
             # initialize
-            X= self.mathModel.init(nbSimul)
+            X = self.mathModel.init(nbSimul)
             # Target
-            Y = self.modelKerasZ.Y0*tf.ones([nbSimul])
+            Y = self.modelKerasUZ.Y0*tf.ones([nbSimul])
             # error compensator
             for iStep in range(self.mathModel.N):
                 # increment
@@ -34,13 +33,12 @@ class SolverGlobalFBSDE(SolverBase):
                 # jump and compensation
                 dN, listJumps, gaussJ  = self.mathModel.jumps()
                 # get  Z, Gam
-                Z = self.modelKerasZ( tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))[:,0]
-                Gam = self.modelKerasGam(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32),X]+ listJumps, axis=-1) )[:,0]
+                Z = self.modelKerasUZ(tf.stack([iStep*tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))[0]
+                Gam = self.modelKerasGam(tf.stack([iStep*tf.ones([nbSimul], dtype= tf.float32), X] + listJumps, axis=-1))[0]
                 # target
-                Y = Y - self.mathModel.dt* self.mathModel.f(Y) + Z*dW + Gam - tf.reduce_mean(Gam)
+                Y = Y - self.mathModel.dt*self.mathModel.f(Y) + Z*dW + Gam - tf.reduce_mean(Gam)
                 # next t step
-                X= self.mathModel.oneStepFrom(iStep, X, dW, gaussJ, Y)
-                # update error 
+                X = self.mathModel.oneStepFrom(iStep, X, dW, gaussJ, Y)
             return  tf.reduce_mean(tf.square(Y- self.mathModel.g(X)))
 
         # train to optimize control
@@ -48,11 +46,11 @@ class SolverGlobalFBSDE(SolverBase):
         def trainOpt( nbSimul,optimizer):
             with tf.GradientTape() as tape:
                 objFunc = optimizeBSDE( nbSimul)
-            gradients= tape.gradient(objFunc, self.modelKerasZ.trainable_variables + self.modelKerasGam.trainable_variables)
-            optimizer.apply_gradients(zip(gradients, self.modelKerasZ.trainable_variables+ self.modelKerasGam.trainable_variables))
+            gradients= tape.gradient(objFunc, self.modelKerasUZ.trainable_variables + self.modelKerasGam.trainable_variables)
+            optimizer.apply_gradients(zip(gradients, self.modelKerasUZ.trainable_variables+ self.modelKerasGam.trainable_variables))
             return objFunc
 
-        optimizer= optimizers.Adam(learning_rate = self.lRate)
+        optimizer = optimizers.Adam(learning_rate = self.lRate)
 
         self.listY0 = []
         self.lossList = []
@@ -66,15 +64,15 @@ class SolverGlobalFBSDE(SolverBase):
             rtime = end_time-start_time
             self.duration += rtime
             objError = optimizeBSDE(batchSizeVal)
-            Y0 = self.modelKerasZ.Y0
+            Y0 = self.modelKerasUZ.Y0
             print(" Error",objError.numpy(),  " elapsed time %5.3f s" % self.duration, "Y0 sofar ",Y0.numpy(), 'epoch', iout)
             self.listY0.append(Y0.numpy())
             self.lossList.append(objError)   
         return self.listY0 
 
 class SolverMultiStepFBSDE(SolverBase):
-    def __init__(self, mathModel, modelKerasU, modelKerasZ , modelKerasGam,  lRate):
-        super().__init__(mathModel, modelKerasU, modelKerasZ , modelKerasGam,  lRate)
+    def __init__(self, mathModel, modelKerasUZ , modelKerasGam,  lRate):
+        super().__init__(mathModel, modelKerasUZ , modelKerasGam,  lRate)
 
     def train(self,  batchSize,  batchSizeVal, num_epoch, num_epochExt):
 
@@ -90,9 +88,8 @@ class SolverMultiStepFBSDE(SolverBase):
                 dW =  np.sqrt(self.mathModel.dt)*gaussian 
                 dN, listJumps, gaussJ  = self.mathModel.jumps()
                 # Adjoint variables 
-                Y = self.modelKerasU( tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))[:,0]
-                Z0 = self.modelKerasZ( tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))[:,0]
-                Gam =  self.modelKerasGam(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32),X]+ listJumps, axis=-1) )[:,0]
+                Y, Z0 = self.modelKerasUZ(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))
+                Gam =  self.modelKerasGam(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32),X] + listJumps, axis=-1) )
                 # target
                 toAdd = - self.mathModel.dt*self.mathModel.f(Y) + Z0*dW + Gam - tf.reduce_mean(Gam)
                 #update list and error
@@ -112,8 +109,8 @@ class SolverMultiStepFBSDE(SolverBase):
         def trainOpt( nbSimul,optimizer):
             with tf.GradientTape() as tape:
                 objFunc= optimizeBSDE( nbSimul)
-            gradients= tape.gradient(objFunc, self.modelKerasU.trainable_variables + self.modelKerasZ.trainable_variables + self.modelKerasGam.trainable_variables)
-            optimizer.apply_gradients(zip(gradients, self.modelKerasU.trainable_variables + self.modelKerasZ.trainable_variables + self.modelKerasGam.trainable_variables))
+            gradients= tape.gradient(objFunc, self.modelKerasUZ.trainable_variables + self.modelKerasGam.trainable_variables)
+            optimizer.apply_gradients(zip(gradients, self.modelKerasUZ.trainable_variables + self.modelKerasGam.trainable_variables))
             return objFunc
 
         optimizer= optimizers.Adam(learning_rate = self.lRate)
@@ -129,7 +126,7 @@ class SolverMultiStepFBSDE(SolverBase):
             rtime = end_time-start_time 
             objError = optimizeBSDE(batchSizeVal)
             X = self.mathModel.init(1)
-            Y0 = self.modelKerasU( tf.stack([tf.zeros([1], dtype= tf.float32) , X], axis=-1))[0,0]
+            Y0 = self.modelKerasUZ( tf.stack([tf.zeros([1], dtype= tf.float32) , X], axis=-1))[0][0]
             print(" Error",objError.numpy(),  " took %5.3f s" % rtime, "Y0 sofar ",Y0.numpy(), 'epoch', iout)
             self.listY0.append(Y0.numpy())
             self.lossList.append(objError)   
@@ -137,8 +134,8 @@ class SolverMultiStepFBSDE(SolverBase):
                 
         
 class SolverSumLocalFBSDE(SolverBase):
-    def __init__(self, mathModel, modelKerasU, modelKerasZ , modelKerasGam,  lRate):
-        super().__init__(mathModel, modelKerasU, modelKerasZ , modelKerasGam,  lRate)
+    def __init__(self, mathModel, modelKerasUZ , modelKerasGam,  lRate):
+        super().__init__(mathModel, modelKerasUZ , modelKerasGam,  lRate)
 
     def train(self,  batchSize,  batchSizeVal, num_epoch, num_epochExt):
 
@@ -150,9 +147,8 @@ class SolverSumLocalFBSDE(SolverBase):
             #error
             error = 0
             #init val
-            YPrev= self.modelKerasU( tf.stack([tf.zeros([nbSimul], dtype= tf.float32) , X], axis=-1))[:,0]
-            Z0Prev= self.modelKerasZ( tf.stack([tf.zeros([nbSimul], dtype= tf.float32) , X], axis=-1))[:,0]
-            GamPrev = self.modelKerasGam(tf.stack([tf.zeros([nbSimul], dtype= tf.float32), X]+ listJumps, axis=-1))[:,0]
+            YPrev, Z0Prev= self.modelKerasUZ( tf.stack([tf.zeros([nbSimul], dtype= tf.float32) , X], axis=-1))
+            GamPrev = self.modelKerasGam(tf.stack([tf.zeros([nbSimul], dtype= tf.float32), X]+ listJumps, axis=-1))
             for iStep in range(self.mathModel.N):
                 # increment
                 gaussian = tf.random.normal([nbSimul])
@@ -165,9 +161,8 @@ class SolverSumLocalFBSDE(SolverBase):
                 if (iStep == (self.mathModel.N - 1)):
                     YNext = self.mathModel.g(X)
                 else:
-                    YNext= self.modelKerasU( tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))[:,0]
-                    Z0Prev= self.modelKerasZ( tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))[:,0]
-                    GamPrev = self.modelKerasGam(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32), X]+ listJumps, axis=-1) )[:,0]
+                    YNext, Z0Prev= self.modelKerasUZ( tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))
+                    GamPrev = self.modelKerasGam(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32), X]+ listJumps, axis=-1) )
                 error = error + tf.reduce_mean(tf.square(YNext - YPrev + toAdd))
                 YPrev = YNext
             return error
@@ -177,8 +172,8 @@ class SolverSumLocalFBSDE(SolverBase):
         def trainOpt( nbSimul,optimizer):
             with tf.GradientTape() as tape:
                 objFunc= optimizeBSDE( nbSimul)
-            gradients= tape.gradient(objFunc, self.modelKerasU.trainable_variables + self.modelKerasZ.trainable_variables + self.modelKerasGam.trainable_variables)
-            optimizer.apply_gradients(zip(gradients, self.modelKerasU.trainable_variables + self.modelKerasZ.trainable_variables + self.modelKerasGam.trainable_variables))
+            gradients= tape.gradient(objFunc, self.modelKerasUZ.trainable_variables + self.modelKerasGam.trainable_variables)
+            optimizer.apply_gradients(zip(gradients, self.modelKerasUZ.trainable_variables + self.modelKerasGam.trainable_variables))
             return objFunc
 
         optimizer= optimizers.Adam(learning_rate = self.lRate)
@@ -194,7 +189,7 @@ class SolverSumLocalFBSDE(SolverBase):
             rtime = end_time-start_time 
             objError = optimizeBSDE(batchSizeVal)
             X = self.mathModel.init(1)
-            Y0 = self.modelKerasU( tf.stack([tf.zeros([1], dtype= tf.float32) , X], axis=-1))[0,0]
+            Y0 = self.modelKerasUZ( tf.stack([tf.zeros([1], dtype= tf.float32) , X], axis=-1))[0][0]
             print(" Error",objError.numpy(),  " took %5.3f s" % rtime, "Y0 sofar ",Y0.numpy(), 'epoch', iout)
             self.listY0.append(Y0.numpy())
             self.lossList.append(objError)   
@@ -203,8 +198,8 @@ class SolverSumLocalFBSDE(SolverBase):
 # global as sum of local error due to regressions
 # see algorithm 
 class SolverGlobalSumLocalReg(SolverBase):
-    def __init__(self, mathModel, modelKerasU, modelKerasZ , modelKerasGam,  lRate):
-        super().__init__(mathModel, modelKerasU, modelKerasZ , modelKerasGam,  lRate)
+    def __init__(self, mathModel, modelKerasUZ , modelKerasGam,  lRate):
+        super().__init__(mathModel, modelKerasUZ , modelKerasGam,  lRate)
       
     def train( self,  batchSize,  batchSizeVal, num_epoch, num_epochExt):
         @tf.function
@@ -214,7 +209,7 @@ class SolverGlobalSumLocalReg(SolverBase):
             # Target
             error = 0.
             # get back Y
-            YPrev = self.modelKerasU(tf.stack([tf.zeros([nbSimul], dtype= tf.float32) , X], axis=-1))[:,0]
+            YPrev, = self.modelKerasUZ(tf.stack([tf.zeros([nbSimul], dtype= tf.float32) , X], axis=-1))
             for iStep in range(self.mathModel.N):
                 # target
                 toAdd = - self.mathModel.dt* self.mathModel.f(YPrev)
@@ -229,7 +224,7 @@ class SolverGlobalSumLocalReg(SolverBase):
                 if (iStep == (self.mathModel.N - 1)):
                     YNext = self.mathModel.g(X)
                 else:
-                    YNext = self.modelKerasU(tf.stack([iStep*tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))[:,0]
+                    YNext, = self.modelKerasUZ(tf.stack([iStep*tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))
                 error = error +  tf.reduce_mean(tf.square(YPrev- YNext  + toAdd))
                 YPrev = YNext
             return error
@@ -239,8 +234,8 @@ class SolverGlobalSumLocalReg(SolverBase):
         def trainOpt( nbSimul,optimizer):
             with tf.GradientTape() as tape:
                 objFunc= regressOptim( nbSimul)
-            gradients= tape.gradient(objFunc, self.modelKerasU.trainable_variables)
-            optimizer.apply_gradients(zip(gradients, self.modelKerasU.trainable_variables))
+            gradients= tape.gradient(objFunc, self.modelKerasUZ.trainable_variables)
+            optimizer.apply_gradients(zip(gradients, self.modelKerasUZ.trainable_variables))
             return objFunc
 
         optimizer= optimizers.Adam(learning_rate = self.lRate)
@@ -256,7 +251,7 @@ class SolverGlobalSumLocalReg(SolverBase):
             rtime = end_time-start_time 
             objError = regressOptim(batchSizeVal)
             X = self.mathModel.init(1)
-            Y0 = self.modelKerasU( tf.stack([tf.zeros([1], dtype= tf.float32) , X], axis=-1))[0,0]
+            Y0 = self.modelKerasUZ( tf.stack([tf.zeros([1], dtype= tf.float32) , X], axis=-1))[0][0]
             print(" Error",objError.numpy(),  " took %5.3f s" % rtime, "Y0 sofar ",Y0.numpy(), 'epoch', iout)
             self.listY0.append(Y0.numpy())
             self.lossList.append(objError)   
@@ -269,8 +264,8 @@ class SolverGlobalSumLocalReg(SolverBase):
 # global as multiStep regression  for hatY
 # see algorithm 
 class SolverGlobalMultiStepReg(SolverBase):
-    def __init__(self, mathModel, modelKerasU, modelKerasZ , modelKerasGam,  lRate):
-        super().__init__(mathModel, modelKerasU, modelKerasZ , modelKerasGam,  lRate)
+    def __init__(self, mathModel, modelKerasUZ , modelKerasGam,  lRate):
+        super().__init__(mathModel, modelKerasUZ , modelKerasGam,  lRate)
 
         
     def train( self,  batchSize,  batchSizeVal, num_epoch, num_epochExt):
@@ -282,7 +277,7 @@ class SolverGlobalMultiStepReg(SolverBase):
             listOfForward = []
             for iStep in range(self.mathModel.N): 
                 # get back Y
-                Y = self.modelKerasU(tf.stack([iStep*tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))[:,0]
+                Y, = self.modelKerasUZ(tf.stack([iStep*tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))
                 # listforward
                 listOfForward.append(Y)                 
                 # to Add
@@ -305,8 +300,8 @@ class SolverGlobalMultiStepReg(SolverBase):
         def trainOpt( nbSimul,optimizer):
             with tf.GradientTape() as tape:
                 objFunc= regressOptim( nbSimul)
-            gradients= tape.gradient(objFunc, self.modelKerasU.trainable_variables)
-            optimizer.apply_gradients(zip(gradients, self.modelKerasU.trainable_variables))
+            gradients= tape.gradient(objFunc, self.modelKerasUZ.trainable_variables)
+            optimizer.apply_gradients(zip(gradients, self.modelKerasUZ.trainable_variables))
             return objFunc
 
         optimizer= optimizers.Adam(learning_rate = self.lRate)
@@ -322,7 +317,7 @@ class SolverGlobalMultiStepReg(SolverBase):
             rtime = end_time-start_time 
             objError = regressOptim(batchSizeVal)
             X = self.mathModel.init(1)
-            Y0 = self.modelKerasU( tf.stack([tf.zeros([1], dtype= tf.float32) , X], axis=-1))[0,0]
+            Y0 = self.modelKerasUZ( tf.stack([tf.zeros([1], dtype= tf.float32) , X], axis=-1))[0][0]
             print(" Error",objError.numpy(),  " took %5.3f s" % rtime, "Y0 sofar ",Y0.numpy(), 'epoch', iout)
             self.listY0.append(Y0.numpy())
             self.lossList.append(objError)   
@@ -330,8 +325,8 @@ class SolverGlobalMultiStepReg(SolverBase):
   
 
 class SolverOsterleeFBSDE(SolverBase):
-    def __init__(self, mathModel, modelKerasU, modelKerasZ , modelKerasGam,  lRate, lamCoef):
-        super().__init__(mathModel, modelKerasU, modelKerasZ , modelKerasGam,  lRate)
+    def __init__(self, mathModel, modelKerasUZ , modelKerasGam,  lRate, lamCoef):
+        super().__init__(mathModel, modelKerasUZ , modelKerasGam,  lRate)
         self.lamCoef = lamCoef
 
     def train(self,  batchSize,  batchSizeVal, num_epoch, num_epochExt):
@@ -350,9 +345,8 @@ class SolverOsterleeFBSDE(SolverBase):
                 # jump and compensation
                 dN, listJumps, gaussJ  = self.mathModel.jumps()
                 # get back Y, Z, Gam
-                Y = self.modelKerasU( tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))[:,0]
-                Z0 = self.modelKerasZ( tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))[:,0]
-                Gam =  self.modelKerasGam(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32),X]+ listJumps, axis=-1) )[:,0]
+                Y, Z0 = self.modelKerasUZ( tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))
+                Gam =  self.modelKerasGam(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32),X]+ listJumps, axis=-1) )
                 # target
                 Y0 += self.mathModel.dt* self.mathModel.f(Y)  - Z0*dW - Gam + tf.reduce_mean(Gam) 
                 # next t step
@@ -371,8 +365,8 @@ class SolverOsterleeFBSDE(SolverBase):
                 # jump and compensation
                 dN, listJumps, gaussJ  = self.mathModel.jumps()
                 # get back Y, Z, Gam
-                Z = self.modelKerasZ( tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))[:,0]
-                Gam = self.modelKerasGam(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32),X]+ listJumps, axis=-1) )[:,0]
+                _, Z = self.modelKerasUZ( tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))
+                Gam = self.modelKerasGam(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32),X]+ listJumps, axis=-1) )
                 # adjoint variables
                 Y = Y - self.mathModel.dt*self.mathModel.f(Y) + Z0*dW + Gam - tf.reduce_mean(Gam)            
                 # next t step
@@ -384,8 +378,8 @@ class SolverOsterleeFBSDE(SolverBase):
         def trainOpt( nbSimul,optimizer):
             with tf.GradientTape() as tape:
                 objFunc= optimizeBSDE( nbSimul)
-            gradients= tape.gradient(objFunc, self.modelKerasU.trainable_variables + self.modelKerasZ.trainable_variables + self.modelKerasGam.trainable_variables)
-            optimizer.apply_gradients(zip(gradients, self.modelKerasU.trainable_variables + self.modelKerasZ.trainable_variables + self.modelKerasGam.trainable_variables))
+            gradients= tape.gradient(objFunc, self.modelKerasUZ.trainable_variables + self.modelKerasGam.trainable_variables)
+            optimizer.apply_gradients(zip(gradients, self.modelKerasUZ.trainable_variables + self.modelKerasGam.trainable_variables))
             return objFunc
 
         optimizer= optimizers.Adam(learning_rate = self.lRate)

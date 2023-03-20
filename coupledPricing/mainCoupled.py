@@ -64,7 +64,7 @@ T, N, r, sig, lam, muJ, sigJ, K, x0 = dict_parameters.values()
 maxJumps = np.amax(np.random.poisson(lam*T/N, size = 10**7)) + 1
 print('Maximum number of Jumps:', maxJumps)
 def func(x):
-  return aLin*tf.math.abs(x)
+    return aLin*tf.math.abs(x)
 # DL model
 ######################################
 if activation == 'tanh':
@@ -87,49 +87,52 @@ listProcesses = []
 fig, ax = plt.subplots(figsize=(10, 6))
 for method in ['Global', 'SumMultiStep', 'SumLocal', 'SumLocalReg', 'SumMultiStepReg', 'Osterlee']:
 #for method in ['Global']:
-  # math model
-  ##########################
-  mathModel = MertonJumpModel(T, N, r, muJ, sigJ, sig, lam, K, x0, maxJumps, func, limit)
+    # math model
+    ##########################
+    mathModel = MertonJumpModel(T, N, r, muJ, sigJ, sig, lam, K, x0, maxJumps, func, limit)
 
-  # DL model
-  ##########################
-  if activation == 'tanh':
-      activ = tf.nn.tanh
-  elif activation == 'relu':
-      activ = tf.nn.relu
-  elif activation == 'sigmoid':
-      activ = tf.math.sigmoid
+    # DL model
+    ##########################
+    if activation == 'tanh':
+        activ = tf.nn.tanh
+    elif activation == 'relu':
+        activ = tf.nn.relu
+    elif activation == 'sigmoid':
+        activ = tf.math.sigmoid
 
-  # Networks
-  ############################  
-  bY0 = (method == 'Global')
-  kerasModelU =  Net(0, layerSize, activation)
-  kerasModelZ = Net(bY0, layerSize, activation)
-  kerasModelGam = Net(0, layerSize, activation)
-  
-  # solver
-  #########################
-  if method == "Global":
-      solver = SolverGlobalFBSDE(mathModel, kerasModelU, kerasModelZ , kerasModelGam, lRateY0)
-  elif method == "SumMultiStep":
-      solver= SolverMultiStepFBSDE(mathModel,kerasModelU, kerasModelZ , kerasModelGam, lRateLoc)
-  elif method == "SumLocal":
-      solver=  SolverSumLocalFBSDE(mathModel,kerasModelU, kerasModelZ , kerasModelGam, lRateLoc)
-  elif method == 'SumMultiStepReg':
-      solver = SolverGlobalMultiStepReg(mathModel,kerasModelU, kerasModelZ , kerasModelGam, lRateReg)
-  elif method == 'SumLocalReg':
-      solver =  SolverGlobalSumLocalReg(mathModel,kerasModelU, kerasModelZ , kerasModelGam, lRateReg)
-  elif method == 'Osterlee':
-      solver = SolverOsterleeFBSDE(mathModel,kerasModelU, kerasModelZ , kerasModelGam, lRateOsterlee, coefOsterlee)
+    # Networks
+    ############################  
+    bY0 = 0
+    ndimOut = 2
+    if method == 'Global':
+        bY0 = 1
+        ndimOut = 1
+    kerasModelUZ =  Net(bY0, ndimOut, layerSize, activation)
+    kerasModelGam = Net(0, 1, layerSize, activation)
+    
+    # solver
+    #########################
+    if method == "Global":
+        solver = SolverGlobalFBSDE(mathModel, kerasModelUZ , kerasModelGam, lRateY0)
+    elif method == "SumMultiStep":
+        solver= SolverMultiStepFBSDE(mathModel, kerasModelUZ , kerasModelGam, lRateLoc)
+    elif method == "SumLocal":
+        solver=  SolverSumLocalFBSDE(mathModel, kerasModelUZ , kerasModelGam, lRateLoc)
+    elif method == 'SumMultiStepReg':
+        solver = SolverGlobalMultiStepReg(mathModel, kerasModelUZ , kerasModelGam, lRateReg)
+    elif method == 'SumLocalReg':
+        solver =  SolverGlobalSumLocalReg(mathModel, kerasModelUZ , kerasModelGam, lRateReg)
+    elif method == 'Osterlee':
+        solver = SolverOsterleeFBSDE(mathModel, kerasModelUZ , kerasModelGam, lRateOsterlee, coefOsterlee)
 
-  # train and  get solution
-  Y0List=  solver.train(batchSize,batchSize*10, num_epoch,num_epochExt )
-  print('Y0',Y0List[-1])
-  # Store loss
-  listLoss.append(solver.lossList)
-  # Store some simulations
-  # simulate if BSDE     
-  ax.plot(Y0List, label = f"Y0 DL {method}")
+    # train and  get solution
+    Y0List=  solver.train(batchSize,batchSize*10, num_epoch,num_epochExt )
+    print('Y0',Y0List[-1])
+    # Store loss
+    listLoss.append(solver.lossList)
+    # Store some simulations
+    # simulate if BSDE     
+    ax.plot(Y0List, label = f"Y0 DL {method}")
 ax.plot(closedformula*np.ones(num_epochExt), label = 'Y0 closed formula', linestyle = 'dashed')
 ax.grid()
 plt.legend()
