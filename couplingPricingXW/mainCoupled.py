@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers
 import os
-#from Networks import Net
+#from Networks import Next
 from mathModelCoupled import MertonJumpModel
 from SolversCoupled import SolverGlobalFBSDE #, SolverMultiStepFBSDE,SolverSumLocalFBSDE, SolverGlobalMultiStepReg, SolverGlobalSumLocalReg, SolverOsterleeFBSDE
 from ClosedFormulaMerton import Option_param, Merton_process, Merton_pricer
@@ -112,6 +112,7 @@ print('Merton real price:', closedformula)
 #######################################
 closedformula = Merton.closed_formula()
 print(closedformula)
+#sys.exit(0)
 listLoss = []
 listProcesses = []
 # math model
