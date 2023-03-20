@@ -21,42 +21,33 @@ class MertonJumpModel:
 
     #initialize
     def init(self, batchSize):
-        self.iStep = 0                  #first step
         self.batchSize = batchSize
-        self.expX = tf.ones([batchSize])
-        self.Xbar = self.x0*tf.ones([batchSize])
-        self.X = self.x0*tf.ones([batchSize])
-        self.F = 0.
+        return self.x0 *tf.ones([batchSize])
     
     #Analytic approach
     #BS closed formula
-    def BS(self, rbs, sigbs):
+    def BS(self,iStep ,X , rbs, sigbs):
         shape = rbs.shape[0]
-        X = tf.stack([self.Xbar]*shape, axis = 1)
-        d1 = (tf.math.log(X/self.K) + (rbs + sigbs**2/2)*(self.T- self.iStep*self.dt))/(sigbs*tf.sqrt(self.T- self.iStep*self.dt))
-        d2 = (tf.math.log(X/self.K) + (rbs - sigbs**2/2)*(self.T- self.iStep*self.dt))/(sigbs*tf.sqrt(self.T- self.iStep*self.dt))
-        return X*self.dist.cdf(d1) - self.K*tf.exp(-rbs*(self.T- self.iStep*self.dt))*self.dist.cdf(d2) 
+        d1 = (tf.math.log(X/self.K) + (rbs + sigbs**2/2)*(self.T- iStep*self.dt))/(sigbs*tf.sqrt(self.T- iStep*self.dt))
+        d2 = (tf.math.log(X/self.K) + (rbs - sigbs**2/2)*(self.T- iStep*self.dt))/(sigbs*tf.sqrt(self.T- iStep*self.dt))
+        return X*self.dist.cdf(d1) - self.K*tf.exp(-rbs*(self.T- iStep*self.dt))*self.dist.cdf(d2) 
 
     #Merton closed formula
-    def A(self):
-        if self.iStep < self.N :
-          I = tf.range(18, dtype = tf.float32)
-          rBS = self.r - self.lam*(tf.exp(self.muJ  + self.sigJ*self.sigJ*0.5) - 1) + I*(self.muJ + 0.5*self.sigJ*self.sigJ)/(self.T - self.iStep*self.dt)
-          sigBS = tf.sqrt(self.sig**2 + I*(self.sigJ**2)/(self.T - self.iStep*self.dt))
-          BSincrements = self.BS(rBS, sigBS)
+    def A(self, iStep, X):
+        if iStep < self.N :
+          I = tf.range(20, dtype = tf.float32)
+          rBS = tf.tile(tf.expand_dims(self.r - self.lam*(tf.exp(self.muJ  + self.sigJ*self.sigJ*0.5) - 1) + I*(self.muJ + 0.5*self.sigJ*self.sigJ)/(self.T - iStep*self.dt), axis=0),[tf.shape(X)[0],1])
+          sigBS = tf.tile(tf.expand_dims(tf.sqrt(self.sig**2 + I*(self.sigJ**2)/(self.T - iStep*self.dt)), axis=0),[tf.shape(X)[0],1])
+          BSincrements = self.BS(iStep,tf.tile(tf.expand_dims(X, axis=-1),[1,20]) , rBS, sigBS)
           lam2 = self.lam*tf.exp(self.muJ + 0.5*self.sigJ**2)
-          coefficients = tf.exp(-lam2*(self.T - self.iStep*self.dt))*((lam2*(self.T - self.iStep*self.dt))**I)/tf.exp(tf.math.lgamma(I + 1))
+          coefficients = tf.tile(tf.expand_dims(tf.exp(-lam2*(self.T - iStep*self.dt))*((lam2*(self.T - iStep*self.dt))**I)/tf.exp(tf.math.lgamma(I + 1)), axis=0),[tf.shape(X)[0],1])
           return tf.reduce_sum(coefficients*BSincrements, axis = 1)
-        return self.g(self.Xbar)
+        return self.g(X)
 
   
     #Go to next step
-    def oneStepFrom(self, dW, gaussJ, Y):
-        self.expX = self.expX*tf.exp((self.r - 0.5*self.sig*self.sig - self.lam*(tf.exp(self.muJ  + self.sigJ*self.sigJ*0.5) - 1))*self.dt + self.sig*dW + gaussJ) 
-        self.F += self.func(Y - self.A())*self.dt
-        self.Xbar = self.x0*self.expX
-        self.X = self.x0*self.expX + self.F
-        self.iStep += 1
+    def oneStepFrom(self, iStep, X, dW, gaussJ, Y):
+        return  X*tf.exp((self.r - 0.5*self.sig*self.sig - self.lam*(tf.exp(self.muJ  + self.sigJ*self.sigJ*0.5) - 1))*self.dt + self.sig*dW + gaussJ) + self.func(Y - self.A(iStep,X))*self.dt
 
     #jumps
     def jumps(self):
@@ -77,7 +68,3 @@ class MertonJumpModel:
     #Payoff 
     def g(self, X):
         return tf.maximum(X-self.K, 0)
-
-    #Get states variables to inject in the nn
-    def getStates(self, Y, dN, listJumps, gaussJ):
-        return self.iStep*self.dt*tf.ones([self.batchSize]), self.X, self.g(self.X), Y*tf.ones([self.batchSize]), (self.iStep>0)*dN, *[(self.iStep>0)*x for x in listJumps], (self.iStep>0)*gaussJ
