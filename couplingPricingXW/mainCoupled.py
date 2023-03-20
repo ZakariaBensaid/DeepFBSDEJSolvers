@@ -48,6 +48,7 @@ parser.add_argument('--nbSimul', type= int, default = 5)
 parser.add_argument('--aLin', type= float, default = 0.1)
 parser.add_argument('--lam', type= float, default = 1.)
 parser.add_argument('--N',  type= int, default = 50)
+parser.add_argument('--removeJump', type= int, default =0)
     
 args = parser.parse_args()
 print("Args ", args)
@@ -82,6 +83,8 @@ lam  = args.lam
 print("Jump intensity", lam)
 N=  args.N
 print(" N ", N)
+removeJump = args.removeJump
+print("Remove "  , removeJump, "   jumps") 
 # Layers
 ######################################
 layerSize = nbNeuron*np.ones((nbLayer,), dtype=np.int32) 
@@ -90,9 +93,11 @@ layerSize = nbNeuron*np.ones((nbLayer,), dtype=np.int32)
 # parameter models
 dict_parameters = {'T':1 ,  'r':0.1, 'sig': 0.3,  'muJ': 0., 'sigJ': 0.2, 'K': 0.9, 'x0': 1}
 T,  r, sig,  muJ, sigJ, K, x0 = dict_parameters.values()
-maxJumps = np.amax(np.random.poisson(lam*T/N, size = 10**7)) + 1
-print("maxJumps",maxJumps) 
-print('Maximum number of Jumps:', maxJumps)
+x = np.random.poisson(lam*T/N, size = 10**7)
+unique, counts = np.unique(x, return_counts=True)
+print("Counts", counts)
+maxJumps = np.amax(x) + 1-removeJump
+print('Maximum number of Jumps:', maxJumps, "removed " ,removeJump )
 def func(x):
   return aLin*tf.math.abs(x)
 # DL model
