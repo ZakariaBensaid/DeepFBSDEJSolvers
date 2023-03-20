@@ -21,7 +21,7 @@ parser.add_argument('--lRateLoc',type=float, default =0.0003)
 parser.add_argument('--lRateReg',type=float, default =0.0003)
 parser.add_argument('--activation',  type= str, default="tanh")
 parser.add_argument('--coefOsterlee', type= float, default = 1000)
-parser.add_argument('--nbSimul', type= int, default = 5)
+parser.add_argument('--aLin', type= float, default = 0.1)
     
 args = parser.parse_args()
 print("Args ", args)
@@ -50,18 +50,20 @@ coefOsterlee = args.coefOsterlee
 print('Osterlee coefficient', coefOsterlee)
 nbSimul = args.nbSimul
 print('number of trajectories', nbSimul)
+aLin = args.aLin
+print('Linear coupling forward backward', aLin)
 # Layers
 ######################################
 layerSize = nbNeuron*np.ones((nbLayer,), dtype=np.int32) 
 # parameter models
 ######################################
 # parameter models
-dict_parameters = {'T':1 , 'N':50, 'r':0.1, 'sig': 0.3, 'lam':1, 'muJ': 0., 'sigJ': 0.2, 'K': 0.9, 'x0': 1, 'a':0.1}
-T, N, r, sig, lam, muJ, sigJ, K, x0, a = dict_parameters.values()
+dict_parameters = {'T':1 , 'N':50, 'r':0.1, 'sig': 0.3, 'lam':1, 'muJ': 0., 'sigJ': 0.2, 'K': 0.9, 'x0': 1}
+T, N, r, sig, lam, muJ, sigJ, K, x0 = dict_parameters.values()
 maxJumps = np.amax(np.random.poisson(lam*T/N, size = 10**7)) + 1
 print('Maximum number of Jumps:', maxJumps)
 def func(x):
-  return a*tf.math.abs(x)
+  return aLin*tf.math.abs(x)
 # DL model
 ######################################
 if activation == 'tanh':
