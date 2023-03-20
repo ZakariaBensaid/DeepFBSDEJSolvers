@@ -22,6 +22,7 @@ parser.add_argument('--lRateReg',type=float, default =0.0003)
 parser.add_argument('--activation',  type= str, default="tanh")
 parser.add_argument('--coefOsterlee', type= float, default = 1000)
 parser.add_argument('--aLin', type= float, default = 0.1)
+parser.add_argument('--limit', type= int, default = 30)
     
 args = parser.parse_args()
 print("Args ", args)
@@ -52,6 +53,8 @@ nbSimul = args.nbSimul
 print('number of trajectories', nbSimul)
 aLin = args.aLin
 print('Linear coupling forward backward', aLin)
+limit = args.limit
+print('Limit Power Series', limit)
 # Layers
 ######################################
 layerSize = nbNeuron*np.ones((nbLayer,), dtype=np.int32) 
@@ -75,7 +78,7 @@ elif activation == 'relu':
 opt_param = Option_param(x0, K, T, exercise="European", payoff="call" )
 Merton_param = Merton_process(r, sig, lam, muJ, sigJ)
 Merton = Merton_pricer(opt_param, Merton_param)
-closedformula = Merton.closed_formula()
+closedformula = Merton.closed_formula(limit)
 print('Merton real price:', closedformula)
 # Train
 #######################################
@@ -88,7 +91,7 @@ for method in ['Global', 'SumMultiStep', 'SumLocal', 'SumLocalReg', 'SumMultiSte
 #for method in ['Global']:
   # math model
   ##########################
-  mathModel = MertonJumpModel(T, N, r, muJ, sigJ, sig, lam, K, x0, maxJumps, func)
+  mathModel = MertonJumpModel(T, N, r, muJ, sigJ, sig, lam, K, x0, maxJumps, func, limit)
 
   # DL model
   ##########################

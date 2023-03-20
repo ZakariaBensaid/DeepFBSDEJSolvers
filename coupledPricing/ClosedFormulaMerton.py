@@ -184,7 +184,7 @@ class Merton_pricer():
     
     
     
-    def closed_formula(self):
+    def closed_formula(self, limit):
         """ 
         Merton closed formula.
         """
@@ -193,7 +193,7 @@ class Merton_pricer():
         lam2 = self.lam * np.exp(self.muJ + (self.sigJ**2)/2)
 
         tot=0
-        for i in range(18):
+        for i in range(limit):
             tot += ( np.exp(-lam2*self.T) * (lam2*self.T)**i / factorial(i) ) \
             * BS_pricer.BlackScholes(self.payoff, self.S0, self.K, self.T, self.r-m+i*(self.muJ+0.5*self.sigJ**2)/self.T, 
                                 np.sqrt(self.sig**2 + (i*self.sigJ**2)/self.T) )  

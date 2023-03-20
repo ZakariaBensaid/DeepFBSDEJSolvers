@@ -4,7 +4,7 @@ import tensorflow_probability as tfp
 tfd = tfp.distributions
 
 class MertonJumpModel:
-    def __init__(self, T, N, r, muJ, sigmaJ, sigma, lam, K, x0, maxJumps, func):
+    def __init__(self, T, N, r, muJ, sigmaJ, sigma, lam, K, x0, maxJumps, func, limit):
         self.T = T                      #Maturity
         self.r = r                      #Interest rate
         self.sig = sigma                #sigma BM asset 
@@ -18,6 +18,7 @@ class MertonJumpModel:
         self.maxJumps = maxJumps        #estimation of the maximal number of jumps
         self.func = func                #functor
         self.dist = tfd.Normal(loc=0., scale=1.)
+        self.limit = limit              #limit Power Series
 
     #initialize
     def init(self, batchSize):
@@ -35,10 +36,10 @@ class MertonJumpModel:
     #Merton closed formula
     def A(self, iStep, X):
         if iStep < self.N :
-          I = tf.range(20, dtype = tf.float32)
+          I = tf.range(self.limit, dtype = tf.float32)
           rBS = tf.tile(tf.expand_dims(self.r - self.lam*(tf.exp(self.muJ  + self.sigJ*self.sigJ*0.5) - 1) + I*(self.muJ + 0.5*self.sigJ*self.sigJ)/(self.T - iStep*self.dt), axis=0),[tf.shape(X)[0],1])
           sigBS = tf.tile(tf.expand_dims(tf.sqrt(self.sig**2 + I*(self.sigJ**2)/(self.T - iStep*self.dt)), axis=0),[tf.shape(X)[0],1])
-          BSincrements = self.BS(iStep,tf.tile(tf.expand_dims(X, axis=-1),[1,20]) , rBS, sigBS)
+          BSincrements = self.BS(iStep,tf.tile(tf.expand_dims(X, axis=-1),[1,self.limit]) , rBS, sigBS)
           lam2 = self.lam*tf.exp(self.muJ + 0.5*self.sigJ**2)
           coefficients = tf.tile(tf.expand_dims(tf.exp(-lam2*(self.T - iStep*self.dt))*((lam2*(self.T - iStep*self.dt))**I)/tf.exp(tf.math.lgamma(I + 1)), axis=0),[tf.shape(X)[0],1])
           return tf.reduce_sum(coefficients*BSincrements, axis = 1)
