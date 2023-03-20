@@ -38,7 +38,8 @@ class SolverGlobalFBSDE:
                 dN, listJumps, gaussJ  = self.mathModel.jumps()
                 # get  Z, Gam
                 Z = self.modelKerasZ( tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))[:,0]
-                Gam = self.modelKerasGam(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32),X]+ listJumps, axis=-1) )[:,0]
+                #Gam = self.modelKerasGam(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32),X, ]+ listJumps, axis=-1) )[:,0]
+                Gam = self.modelKerasGam(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32),X, gaussJ ], axis=-1) )[:,0]
                 # target
                 Y = Y - self.mathModel.dt* self.mathModel.f(Y) + Z*dW + Gam - tf.reduce_mean(Gam)
                 # next t step
