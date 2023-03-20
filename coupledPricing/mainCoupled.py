@@ -96,34 +96,36 @@ for method in ['Global', 'SumMultiStep', 'SumLocal', 'SumLocalReg', 'SumMultiSte
       activ = tf.nn.relu
   elif activation == 'sigmoid':
       activ = tf.math.sigmoid
-      
-  if method in ['SumMultiStepReg', 'SumLocalReg']:
-      kerasModel = Net(method, 1, layerSize, activation)
-  elif method in ['SumMultiStep', 'SumLocal', 'Osterlee']:
-      kerasModel = Net(method, 3, layerSize, activation)
-  else:
-      kerasModel = Net(method, 2, layerSize, activation)
 
+  # Networks
+  ############################  
+  bY0 = (method == 'Global')
+  kerasModelU =  Net(0, layerSize, activation)
+  kerasModelZ = Net(bY0, layerSize, activation)
+  kerasModelGam = Net(0, layerSize, activation)
+  
   # solver
   #########################
   if method == "Global":
-      solver = SolverGlobalFBSDE(mathModel,kerasModel, lRateY0)
+      solver = SolverGlobalFBSDE(mathModel, kerasModelU, kerasModelZ , kerasModelGam, lRateY0)
   elif method == "SumMultiStep":
-      solver= SolverMultiStepFBSDE(mathModel,kerasModel, lRateLoc)
+      solver= SolverMultiStepFBSDE(mathModel,kerasModelU, kerasModelZ , kerasModelGam, lRateLoc)
   elif method == "SumLocal":
-      solver=  SolverSumLocalFBSDE(mathModel,kerasModel, lRateLoc)
+      solver=  SolverSumLocalFBSDE(mathModel,kerasModelU, kerasModelZ , kerasModelGam, lRateLoc)
   elif method == 'SumMultiStepReg':
-      solver = SolverGlobalMultiStepReg(mathModel,kerasModel, lRateReg)
+      solver = SolverGlobalMultiStepReg(mathModel,kerasModelU, kerasModelZ , kerasModelGam, lRateReg)
   elif method == 'SumLocalReg':
-      solver =  SolverGlobalSumLocalReg(mathModel,kerasModel, lRateReg)
+      solver =  SolverGlobalSumLocalReg(mathModel,kerasModelU, kerasModelZ , kerasModelGam, lRateReg)
   elif method == 'Osterlee':
-      solver = SolverOsterleeFBSDE(mathModel,kerasModel, lRateOsterlee, coefOsterlee)
+      solver = SolverOsterleeFBSDE(mathModel,kerasModelU, kerasModelZ , kerasModelGam, lRateOsterlee, coefOsterlee)
 
   # train and  get solution
   Y0List=  solver.train(batchSize,batchSize*10, num_epoch,num_epochExt )
   print('Y0',Y0List[-1])
   # Store loss
-  listLoss.append(solver.lossList)  
+  listLoss.append(solver.lossList)
+  # Store some simulations
+  # simulate if BSDE     
   ax.plot(Y0List, label = f"Y0 DL {method}")
 ax.plot(closedformula*np.ones(num_epochExt), label = 'Y0 closed formula', linestyle = 'dashed')
 ax.grid()
