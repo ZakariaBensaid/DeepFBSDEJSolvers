@@ -294,7 +294,7 @@ class SolverSumLocalFBSDE2(SolverBase):
                     YNext = self.mathModel.g(X)
                 else:
                     YNext, Z0Prev= self.modelKerasUZ( tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))
-                    GamPrev = self.modelKerasGam(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32), X]+ gaussJ, axis=-1) )
+                    GamPrev = self.modelKerasGam(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32), X, gaussJ], axis=-1) )
                 error = error + tf.reduce_mean(tf.square(YNext - YPrev + toAdd))
                 YPrev = YNext
             return error
