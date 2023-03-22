@@ -4,7 +4,7 @@ import tensorflow_probability as tfp
 tfd = tfp.distributions
 
 class MertonJumpModel:
-    def __init__(self, T, N, r, muJ, sigmaJ, sigma, lam, K, x0, maxJumps, func, limit):
+    def __init__(self, T, N, r, muJ, sigmaJ, sigma, lam, K, x0, func, limit):
         self.T = T                      #Maturity
         self.r = r                      #Interest rate
         self.sig = sigma                #sigma BM asset 
@@ -15,7 +15,6 @@ class MertonJumpModel:
         self.N = N                      #steps number
         self.dt = T/N                   #steps length
         self.x0 = x0                    #current price asset
-        self.maxJumps = maxJumps        #estimation of the maximal number of jumps
         self.func = func                #functor
         self.dist = tfd.Normal(loc=0., scale=1.)
         self.limit = limit              #limit Power Series
@@ -50,16 +49,12 @@ class MertonJumpModel:
     def oneStepFrom(self, iStep, X, dW, gaussJ, Y):
         return  X*tf.exp((self.r - 0.5*self.sig*self.sig - self.lam*(tf.exp(self.muJ  + self.sigJ*self.sigJ*0.5) - 1))*self.dt + self.sig*dW + gaussJ) + self.func(Y - self.A(iStep,X))*self.dt
 
-    #jumps
+    #sum of jumps
     def jumps(self):
-      dN = tf.random.poisson([self.batchSize], self.lam*self.dt, dtype = tf.float32)
-      bindN = tf.sequence_mask(dN, self.maxJumps)
-      listJumps = tf.where(bindN,
-                            tf.random.normal([self.batchSize, self.maxJumps], self.muJ, self.sigJ),
-                            tf.zeros([self.batchSize, self.maxJumps]))
-      unstackedList = tf.unstack(listJumps, axis = 1)
-      gaussJ = tf.reduce_sum(listJumps, axis = 1)
-      return dN, unstackedList, gaussJ
+        lam = self.lam*tf.ones([self.batchSize])
+        dN = tf.random.poisson([1], lam*self.dt, dtype = tf.float32)[0]
+        gaussJ = dN*self.muJ + self.sigJ*tf.sqrt(dN)*tf.random.normal([self.batchSize], 0, 1)
+        return gaussJ
   
 
     #Driver
