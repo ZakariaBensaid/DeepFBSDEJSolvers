@@ -20,7 +20,7 @@ parser.add_argument('--lRateY0',type=float, default =0.003)
 parser.add_argument('--lRateLoc',type=float, default =0.0003)
 parser.add_argument('--lRateReg',type=float, default =0.0003)
 parser.add_argument('--activation',  type= str, default="tanh")
-parser.add_argument('--coefOsterlee', type= float, default = 1000)
+parser.add_argument('--coefOsterlee', type= float, default = 5)
 parser.add_argument('--aLin', type= float, default = 0.1)
 parser.add_argument('--limit', type= int, default = 30)
     
