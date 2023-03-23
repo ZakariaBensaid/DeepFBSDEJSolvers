@@ -155,7 +155,7 @@ class SolverMultiStepFBSDE2(SolverBase):
                 gaussJ  = self.mathModel.jumps()
                 # Adjoint variables 
                 Y, Z0 = self.modelKerasUZ(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))
-                Gam =  self.modelKerasGam(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32),X , gaussJ], axis=-1) )
+                Gam =  self.modelKerasGam(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32),X , gaussJ], axis=-1) )[0]
                 # target
                 toAdd = - self.mathModel.dt*self.mathModel.f(Y) + Z0*dW + Gam - tf.reduce_mean(Gam)
                 #update list and error
@@ -280,7 +280,7 @@ class SolverSumLocalFBSDE2(SolverBase):
             error = 0
             #init val
             YPrev, Z0Prev= self.modelKerasUZ( tf.stack([tf.zeros([nbSimul], dtype= tf.float32) , X], axis=-1))
-            GamPrev = self.modelKerasGam(tf.stack([tf.zeros([nbSimul], dtype= tf.float32), X, gaussJ], axis=-1))
+            GamPrev = self.modelKerasGam(tf.stack([tf.zeros([nbSimul], dtype= tf.float32), X, gaussJ], axis=-1))[0]
             for iStep in range(self.mathModel.N):
                 # increment
                 gaussian = tf.random.normal([nbSimul])
@@ -294,7 +294,7 @@ class SolverSumLocalFBSDE2(SolverBase):
                     YNext = self.mathModel.g(X)
                 else:
                     YNext, Z0Prev= self.modelKerasUZ( tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))
-                    GamPrev = self.modelKerasGam(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32), X, gaussJ], axis=-1) )
+                    GamPrev = self.modelKerasGam(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32), X, gaussJ], axis=-1) )[0]
                 error = error + tf.reduce_mean(tf.square(YNext - YPrev + toAdd))
                 YPrev = YNext
             return error
