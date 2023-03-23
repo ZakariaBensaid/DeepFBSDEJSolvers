@@ -478,7 +478,7 @@ class SolverOsterleeFBSDE(SolverBase):
                 gaussJ  = self.mathModel.jumps()
                 # get back Y, Z, Gam
                 Y, Z0 = self.modelKerasUZ( tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))
-                Gam =  self.modelKerasGam(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32),X, gaussJ], axis=-1) )
+                Gam =  self.modelKerasGam(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32),X, gaussJ], axis=-1) )[0]
                 # target
                 Y0 += self.mathModel.dt* self.mathModel.f(Y)  - Z0*dW - Gam + tf.reduce_mean(Gam) 
                 # next t step
@@ -498,7 +498,7 @@ class SolverOsterleeFBSDE(SolverBase):
                 gaussJ  = self.mathModel.jumps()
                 # get back Y, Z, Gam
                 _, Z = self.modelKerasUZ( tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))
-                Gam = self.modelKerasGam(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32),X, gaussJ], axis=-1) )
+                Gam = self.modelKerasGam(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32),X, gaussJ], axis=-1) )[0]
                 # adjoint variables
                 Y = Y - self.mathModel.dt*self.mathModel.f(Y) + Z0*dW + Gam - tf.reduce_mean(Gam)            
                 # next t step
