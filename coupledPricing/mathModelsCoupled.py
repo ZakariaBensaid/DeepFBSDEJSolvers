@@ -97,7 +97,7 @@ class VGmodel:
     
     def A(self, iStep, X):
       k = tf.tile(tf.expand_dims(tf.math.log(self.K/X), axis = 0), [10**3,1])
-      u  = tf.transpose(tf.tile(tf.expand_dims(tf.linspace(1e-15, 5000, 10**3), axis = 0), [tf.shape(X)[0],1]))
+      u  = tf.tile(tf.expand_dims(tf.linspace(1e-15, 5000, 10**3), axis = 1), [1,tf.shape(X)[0]])
       integrand1 = lambda u: tf.math.real((tf.exp(-tf.dtypes.complex(0., u*k))/ (tf.dtypes.complex(0., u))) * \
                                           self.characteristicfunc(iStep, tf.dtypes.complex(u, -1.))/ self.characteristicfunc(iStep, tf.dtypes.complex(0.,-1.0000000000001)))
       integrand2 = lambda u: tf.math.real(tf.exp(-tf.dtypes.complex(0., u*k))/ (tf.dtypes.complex(0., u))*self.characteristicfunc(iStep, tf.dtypes.complex(u, 0.)))      
