@@ -49,7 +49,6 @@ coefOsterlee = args.coefOsterlee
 print('Osterlee coefficient', coefOsterlee)
 aLin = args.aLin
 print('Linear coupling forward backward', aLin)
-model = args.model
 # Layers
 ######################################
 layerSize = nbNeuron*np.ones((nbLayer,), dtype=np.int32) 
