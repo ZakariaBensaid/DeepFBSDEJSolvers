@@ -93,14 +93,10 @@ for method in ['Global', 'SumMultiStep1', 'SumMultiStep2', 'SumLocal1', 'SumLoca
     # Networks
     ############################  
     bY0 = 0
-    ndimOut = 2
     if method == 'Global':
         bY0 = 1
-        ndimOut = 1
-    elif method in ['SumLocalReg', 'SumMultiStepReg']:
-        ndimOut = 1
-    kerasModelU =  Net(bY0, ndimOut, layerSize, activation)
-    kerasModelGam = Net(0, 1, layerSize, activation)   
+    kerasModelU =  Net(0, 1, layerSize, activation)
+    kerasModelGam = Net(bY0, 1, layerSize, activation)   
     # solver
     #########################
     if method == "Global":
