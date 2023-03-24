@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 import os
 from Networks import Net
-from mathModelsCoupled import MertonJumpModel
+from mathModelsCoupled import MertonJumpModel, VGmodel
 from SolversCoupled import SolverGlobalFBSDE, SolverMultiStepFBSDE,SolverSumLocalFBSDE, SolverGlobalMultiStepReg, SolverGlobalSumLocalReg, SolverOsterleeFBSDE
 from ClosedFormulaMerton import Option_param, Merton_process, Merton_pricer
 import argparse
@@ -23,6 +23,7 @@ parser.add_argument('--activation',  type= str, default="tanh")
 parser.add_argument('--coefOsterlee', type= float, default = 5)
 parser.add_argument('--aLin', type= float, default = 0.1)
 parser.add_argument('--limit', type= int, default = 30)
+parser.add_argument('--model', type = str, default = 'Merton')
     
 args = parser.parse_args()
 print("Args ", args)
@@ -51,18 +52,23 @@ coefOsterlee = args.coefOsterlee
 print('Osterlee coefficient', coefOsterlee)
 aLin = args.aLin
 print('Linear coupling forward backward', aLin)
-limit = args.limit
-print('Limit Power Series', limit)
+model = args.model
+print('Pricing model', model)
+if model == 'Merton':
+    limit = args.limit
+    print('Limit Power Series', limit)
 # Layers
 ######################################
 layerSize = nbNeuron*np.ones((nbLayer,), dtype=np.int32) 
 # parameter models
 ######################################
-# parameter models
-dict_parameters = {'T':1 , 'N':50, 'r':0.1, 'sig': 0.3, 'lam':1, 'muJ': 0., 'sigJ': 0.2, 'K': 0.9, 'x0': 1}
-T, N, r, sig, lam, muJ, sigJ, K, x0 = dict_parameters.values()
-maxJumps = np.amax(np.random.poisson(lam*T/N, size = 10**7)) + 1
-print('Maximum number of Jumps:', maxJumps)
+if model == 'Merton':
+    dict_parameters = {'T':1 , 'N':50, 'r':0.1, 'sig': 0.3, 'lam':1, 'muJ': 0., 'sigJ': 0.2, 'K': 0.9, 'x0': 1}
+    T, N, r, sig, lam, muJ, sigJ, K, x0 = dict_parameters.values()
+elif model == 'VarianceGamma':
+    dict_parameters = {'T':1, 'N':50, 'r':0.4, 'theta' : -0.1, 'kappa': 0.3, 'sigJ': 0.2, 'sig': 0., 'K': 1, 'x0': 1}
+    T, N, r, theta, kappa, sigmaJ, sigma, K, x0 = dict_parameters.values()
+#Couplage function
 def func(x):
     return aLin*tf.math.abs(x)
 # DL model
@@ -71,13 +77,18 @@ if activation == 'tanh':
     activ = tf.nn.tanh
 elif activation == 'relu':
     activ = tf.nn.relu
-# Closed formula Merton
+# Real price
 ######################################
-opt_param = Option_param(x0, K, T, exercise="European", payoff="call" )
-Merton_param = Merton_process(r, sig, lam, muJ, sigJ)
-Merton = Merton_pricer(opt_param, Merton_param)
-closedformula = Merton.closed_formula(limit)
-print('Merton real price:', closedformula)
+if model == 'Merton':
+    mathModel0 = MertonJumpModel(T, N, r, muJ, sigJ, sig, lam, K, x0, func, limit)
+    X = mathModel0.init(1)
+    Realprice = mathModel0.A(0, X).numpy()
+    print('Merton real price:',Realprice )
+elif model == 'VarianceGamma':
+    mathModel0 = VGmodel(T, N, r, theta, kappa, sigmaJ, K, x0, func)
+    X = mathModel0.init(1)
+    Realprice = mathModel0.A(0, X).numpy()
+    print('VG real price', Realprice)
 # Train
 #######################################
 listLoss = []
@@ -87,7 +98,10 @@ for method in ['Global', 'SumMultiStep1', 'SumMultiStep2', 'SumLocal1', 'SumLoca
 #for method in ['SumMultiStep1']:
     # math model
     ##########################
-    mathModel = MertonJumpModel(T, N, r, muJ, sigJ, sig, lam, K, x0, func, limit)
+    if model == 'Merton':
+        mathModel = MertonJumpModel(T, N, r, muJ, sigJ, sig, lam, K, x0, func, limit)
+    elif model == 'VarianceGamma':
+        mathModel = VGmodel(T, N, r, theta, kappa, sigmaJ, K, x0, func)
 
     # DL model
     ##########################
@@ -136,7 +150,7 @@ for method in ['Global', 'SumMultiStep1', 'SumMultiStep2', 'SumLocal1', 'SumLoca
     # Store loss
     listLoss.append(solver.lossList)   
     ax.plot(Y0List, label = f"Y0 DL {method}")
-ax.plot(closedformula*np.ones(num_epochExt), label = 'Y0 closed formula', linestyle = 'dashed')
+ax.plot(Realprice*np.ones(num_epochExt), label = 'Y0 closed formula', linestyle = 'dashed')
 ax.grid()
 plt.legend()
 plt.show()
