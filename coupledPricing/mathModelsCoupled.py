@@ -88,7 +88,6 @@ class VGmodel:
     #initialize
     def init(self, batchSize):                                                                   
         self.batchSize = batchSize
-        self.iStep = 0
         return self.x0*tf.ones([batchSize])
 
     #fourier inversion method
@@ -109,15 +108,13 @@ class VGmodel:
 
     #Go to next step
     def oneStepFrom(self, iStep, X, dW, gaussJ, Y):
-        self.iStep = iStep
         return  X*tf.exp((self.r - self.correction)*self.dt + gaussJ) + self.func(Y - self.A(iStep, X))*self.dt 
     
     #jumps
     def jumps(self):
         gauss = tf.random.normal([self.batchSize], 0, 1)
-        gamma = tf.random.gamma([self.batchSize], self.iStep*self.dt/self.kappa, self.kappa)
-        gaussJ = tf.math.multiply(self.theta, gamma) + self.sigJ*tf.sqrt(gamma)*gauss 
-        return gaussJ
+        gamma = tf.random.gamma([self.batchSize], self.dt/self.kappa, 1/self.kappa) 
+        return tf.math.multiply(self.theta, gamma) + self.sigJ*tf.sqrt(gamma)*gauss
 
     #Driver
     def f(self, Y):
