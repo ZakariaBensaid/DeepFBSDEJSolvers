@@ -107,7 +107,7 @@ class VGmodel:
 
 
     #Go to next step
-    def oneStepFrom(self, iStep, X, dW, gaussJ, Y):
+    def oneStepFrom(self, iStep, X, gaussJ, Y):
         return  X*tf.exp((self.r - self.correction)*self.dt + gaussJ) + self.func(Y - self.A(iStep, X))*self.dt 
     
     #jumps
