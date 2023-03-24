@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 import os
 from Networks import Net
-from mathModelCoupled import MertonJumpModel
+from mathModelsCoupled import MertonJumpModel
 from SolversCoupled import SolverGlobalFBSDE, SolverMultiStepFBSDE,SolverSumLocalFBSDE, SolverGlobalMultiStepReg, SolverGlobalSumLocalReg, SolverOsterleeFBSDE
 from ClosedFormulaMerton import Option_param, Merton_process, Merton_pricer
 import argparse
