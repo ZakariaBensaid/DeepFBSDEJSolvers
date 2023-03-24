@@ -82,12 +82,12 @@ elif activation == 'relu':
 if model == 'Merton':
     mathModel0 = MertonJumpModel(T, N, r, muJ, sigJ, sig, lam, K, x0, func, limit)
     X = mathModel0.init(1)
-    Realprice = mathModel0.A(0, X).numpy()
+    Realprice = mathModel0.A(0, X).numpy()[0]
     print('Merton real price:',Realprice )
 elif model == 'VarianceGamma':
     mathModel0 = VGmodel(T, N, r, theta, kappa, sigmaJ, K, x0, func)
     X = mathModel0.init(1)
-    Realprice = mathModel0.A(0, X).numpy()
+    Realprice = mathModel0.A(0, X).numpy()[0]
     print('VG real price', Realprice)
 # Train
 #######################################
