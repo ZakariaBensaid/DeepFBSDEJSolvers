@@ -2,9 +2,8 @@ import numpy as np
 import tensorflow as tf
 import os
 from Networks import Net
-from mathModelsCoupled import MertonJumpModel, VGmodel
-from SolversCoupled import SolverGlobalFBSDE, SolverMultiStepFBSDE1, SolverMultiStepFBSDE2, SolverSumLocalFBSDE1, SolverSumLocalFBSDE2, SolverGlobalMultiStepReg, SolverGlobalSumLocalReg, SolverOsterleeFBSDE
-from ClosedFormulaMerton import Option_param, Merton_process, Merton_pricer
+from mathModelsCoupled import VGmodel
+from SolversCoupledPureJump import SolverGlobalFBSDE, SolverMultiStepFBSDE1, SolverMultiStepFBSDE2, SolverSumLocalFBSDE1, SolverSumLocalFBSDE2, SolverGlobalMultiStepReg, SolverGlobalSumLocalReg, SolverOsterleeFBSDE
 import argparse
 import matplotlib.pyplot as plt
 import sys 
@@ -22,8 +21,6 @@ parser.add_argument('--lRateReg',type=float, default =0.0003)
 parser.add_argument('--activation',  type= str, default="tanh")
 parser.add_argument('--coefOsterlee', type= float, default = 5)
 parser.add_argument('--aLin', type= float, default = 0.1)
-parser.add_argument('--limit', type= int, default = 30)
-parser.add_argument('--model', type = str, default = 'Merton')
     
 args = parser.parse_args()
 print("Args ", args)
@@ -53,21 +50,13 @@ print('Osterlee coefficient', coefOsterlee)
 aLin = args.aLin
 print('Linear coupling forward backward', aLin)
 model = args.model
-print('Pricing model', model)
-if model == 'Merton':
-    limit = args.limit
-    print('Limit Power Series', limit)
 # Layers
 ######################################
 layerSize = nbNeuron*np.ones((nbLayer,), dtype=np.int32) 
-# parameter models
+# parameters model
 ######################################
-if model == 'Merton':
-    dict_parameters = {'T':1 , 'N':50, 'r':0.1, 'sig': 0.3, 'lam':1, 'muJ': 0., 'sigJ': 0.2, 'K': 0.9, 'x0': 1}
-    T, N, r, sig, lam, muJ, sigJ, K, x0 = dict_parameters.values()
-elif model == 'VarianceGamma':
-    dict_parameters = {'T':1, 'N':50, 'r':0.4, 'theta' : -0.1, 'kappa': 0.3, 'sigJ': 0.2, 'sig': 0., 'K': 1, 'x0': 1}
-    T, N, r, theta, kappa, sigmaJ, sigma, K, x0 = dict_parameters.values()
+dict_parameters = {'T':1, 'N':50, 'r':0.4, 'theta' : -0.1, 'kappa': 0.3, 'sigJ': 0.2, 'sig': 0., 'K': 1, 'x0': 1}
+T, N, r, theta, kappa, sigmaJ, sigma, K, x0 = dict_parameters.values()
 #Couplage function
 def func(x):
     return aLin*tf.math.abs(x)
@@ -79,16 +68,10 @@ elif activation == 'relu':
     activ = tf.nn.relu
 # Real price
 ######################################
-if model == 'Merton':
-    mathModel0 = MertonJumpModel(T, N, r, muJ, sigJ, sig, lam, K, x0, func, limit)
-    X = mathModel0.init(1)
-    Realprice = mathModel0.A(0, X).numpy()[0]
-    print('Merton real price:',Realprice )
-elif model == 'VarianceGamma':
-    mathModel0 = VGmodel(T, N, r, theta, kappa, sigmaJ, K, x0, func)
-    X = mathModel0.init(1)
-    Realprice = mathModel0.A(0, X).numpy()[0]
-    print('VG real price', Realprice)
+mathModel0 = VGmodel(T, N, r, theta, kappa, sigmaJ, K, x0, func)
+X = mathModel0.init(1)
+Realprice = mathModel0.A(0, X).numpy()[0]
+print('VG real price', Realprice)
 # Train
 #######################################
 listLoss = []
@@ -98,11 +81,7 @@ for method in ['Global', 'SumMultiStep1', 'SumMultiStep2', 'SumLocal1', 'SumLoca
 #for method in ['SumMultiStep1']:
     # math model
     ##########################
-    if model == 'Merton':
-        mathModel = MertonJumpModel(T, N, r, muJ, sigJ, sig, lam, K, x0, func, limit)
-    elif model == 'VarianceGamma':
-        mathModel = VGmodel(T, N, r, theta, kappa, sigmaJ, K, x0, func)
-
+    mathModel = VGmodel(T, N, r, theta, kappa, sigmaJ, K, x0, func)
     # DL model
     ##########################
     if activation == 'tanh':
@@ -111,7 +90,6 @@ for method in ['Global', 'SumMultiStep1', 'SumMultiStep2', 'SumLocal1', 'SumLoca
         activ = tf.nn.relu
     elif activation == 'sigmoid':
         activ = tf.math.sigmoid
-
     # Networks
     ############################  
     bY0 = 0
@@ -121,29 +99,26 @@ for method in ['Global', 'SumMultiStep1', 'SumMultiStep2', 'SumLocal1', 'SumLoca
         ndimOut = 1
     elif method in ['SumLocalReg', 'SumMultiStepReg']:
         ndimOut = 1
-
-    kerasModelUZ =  Net(bY0, ndimOut, layerSize, activation)
-    kerasModelGam = Net(0, 1, layerSize, activation)
-    
+    kerasModelU =  Net(bY0, ndimOut, layerSize, activation)
+    kerasModelGam = Net(0, 1, layerSize, activation)   
     # solver
     #########################
     if method == "Global":
-        solver = SolverGlobalFBSDE(mathModel, kerasModelUZ , kerasModelGam, lRateY0)
+        solver = SolverGlobalFBSDE(mathModel, kerasModelU , kerasModelGam, lRateY0)
     elif method == "SumMultiStep1":
-        solver= SolverMultiStepFBSDE1(mathModel, kerasModelUZ, lRateLoc)
+        solver= SolverMultiStepFBSDE1(mathModel, kerasModelU, lRateLoc)
     elif method == "SumMultiStep2":
-        solver= SolverMultiStepFBSDE2(mathModel, kerasModelUZ , kerasModelGam, lRateLoc)
+        solver= SolverMultiStepFBSDE2(mathModel, kerasModelU , kerasModelGam, lRateLoc)
     elif method == "SumLocal1":
-        solver=  SolverSumLocalFBSDE1(mathModel, kerasModelUZ, lRateLoc)
+        solver=  SolverSumLocalFBSDE1(mathModel, kerasModelU, lRateLoc)
     elif method == "SumLocal2":
-        solver=  SolverSumLocalFBSDE2(mathModel, kerasModelUZ , kerasModelGam, lRateLoc)
+        solver=  SolverSumLocalFBSDE2(mathModel, kerasModelU , kerasModelGam, lRateLoc)
     elif method == 'SumMultiStepReg':
-        solver = SolverGlobalMultiStepReg(mathModel, kerasModelUZ , kerasModelGam, lRateReg)
+        solver = SolverGlobalMultiStepReg(mathModel, kerasModelU , kerasModelGam, lRateReg)
     elif method == 'SumLocalReg':
-        solver =  SolverGlobalSumLocalReg(mathModel, kerasModelUZ , kerasModelGam, lRateReg)
+        solver =  SolverGlobalSumLocalReg(mathModel, kerasModelU , kerasModelGam, lRateReg)
     elif method == 'Osterlee':
-        solver = SolverOsterleeFBSDE(mathModel, kerasModelUZ , kerasModelGam, lRateOsterlee, coefOsterlee)
-
+        solver = SolverOsterleeFBSDE(mathModel, kerasModelU , kerasModelGam, lRateOsterlee, coefOsterlee)
     # train and  get solution
     Y0List=  solver.train(batchSize,batchSize*10, num_epoch,num_epochExt )
     print('Y0',Y0List[-1])

@@ -7,7 +7,7 @@ class Net( tf.keras.Model):
     def __init__( self, bY0, ndimOut, nbNeurons, activation= tf.nn.tanh):
         super().__init__()
         self.nbNeurons = nbNeurons
-        self.name_ = "FeedForwardANd0"
+        self.name_ = "FeedForward"
         self.ndimOut = ndimOut
         self.ListOfDense =  [layers.Dense( nbNeurons[i],activation= activation, kernel_initializer= tf.keras.initializers.GlorotNormal())  for i in range(len(nbNeurons)) ]+[layers.Dense(self.ndimOut, activation= None, kernel_initializer= tf.keras.initializers.GlorotNormal())]
         if (bY0 ==1):
