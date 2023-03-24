@@ -89,7 +89,7 @@ class SolverMultiStepFBSDE1():
                 Gam =  self.modelKerasU(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32), X + gaussJ], axis=-1))[0] \
                 - self.modelKerasU(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32), X], axis=-1))[0] 
                 # target
-                toAdd = - self.mathModel.dt*self.mathModel.f(Y) Gam - tf.reduce_mean(Gam)
+                toAdd = - self.mathModel.dt*self.mathModel.f(Y) + Gam - tf.reduce_mean(Gam)
                 #update list and error
                 listOfForward.append(Y)
                 #forward
