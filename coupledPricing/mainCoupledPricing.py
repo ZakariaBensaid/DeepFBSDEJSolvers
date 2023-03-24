@@ -3,7 +3,7 @@ import tensorflow as tf
 import os
 from Networks import Net
 from mathModelsCoupled import MertonJumpModel, VGmodel
-from SolversCoupled import SolverGlobalFBSDE, SolverMultiStepFBSDE,SolverSumLocalFBSDE, SolverGlobalMultiStepReg, SolverGlobalSumLocalReg, SolverOsterleeFBSDE
+from SolversCoupled import SolverGlobalFBSDE, SolverMultiStepFBSDE1, SolverMultiStepFBSDE2, SolverSumLocalFBSDE1, SolverSumLocalFBSDE2, SolverGlobalMultiStepReg, SolverGlobalSumLocalReg, SolverOsterleeFBSDE
 from ClosedFormulaMerton import Option_param, Merton_process, Merton_pricer
 import argparse
 import matplotlib.pyplot as plt
