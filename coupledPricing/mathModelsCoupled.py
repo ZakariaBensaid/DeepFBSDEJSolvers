@@ -2,6 +2,8 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 tfd = tfp.distributions
+from tensorflow.signal import ifft
+from scipy.interpolate import interp1d
 
 #Merton model
 #############################################
@@ -67,9 +69,9 @@ class MertonJumpModel:
     def g(self, X):
         return tf.maximum(X-self.K, 0)
 
-#VG Model
+#VG Model with inverse Fourier method
 ####################################################
-class VGmodel:
+class VGmodelinvfourier:
     def __init__(self, T, N, r, theta, kappa, sigmaJ, K, x0, func):
         self.T = T                                                                         #Maturity
         self.r = r                                                                         #Interest rate
@@ -123,3 +125,69 @@ class VGmodel:
     #Payoff 
     def g(self, X):
         return tf.maximum(X-self.K, 0)
+
+######################################################
+#VG with FFT method
+class VGmodel:
+    def __init__(self, T, N, r, theta, kappa, sigmaJ, K, x0, func):
+        self.T = T                                                                         #Maturity
+        self.r = r                                                                         #Interest rate
+        self.sigJ = sigmaJ                                                                 #volatility of small jumps
+        self.theta = theta                                                                 #the drift of the BM approximating small jumps
+        self.kappa = kappa                                                                 #variance of the Gamma process
+        self.K = K                                                                         #srike
+        self.N = N                                                                         #steps number
+        self.dt = T/N                                                                      #steps length
+        self.x0 = x0                                                                       #spot price
+        self.correction = -tf.math.log(1 - theta * kappa - kappa/2 * sigmaJ**2 ) /kappa    #correction of the drift of the jump part
+        self.func = func                                                                   #couplage functor
+
+    
+
+    #initialize
+    def init(self, batchSize):                                                                   
+        self.batchSize = batchSize
+        return self.x0*tf.ones([batchSize])
+
+    #fft method
+    def characteristicfunc(self, iStep, u):
+      return tf.exp((self.T - iStep*self.dt)*(tf.dtypes.complex(0., (self.r - self.correction))*u - \
+                                                   tf.math.log(1 - tf.dtypes.complex(0., self.theta*self.kappa)*u + tf.dtypes.complex(0.5*self.kappa*self.sigJ*self.sigJ, 0.)*u*u)/self.kappa))
+    
+    def A(self, iStep, X):
+      # fft parameters
+      fftN, B = 2**15, 500
+      du = B/fftN
+      rng = np.arange(fftN)
+      u = rng*du
+      lm = 2*np.pi/B
+      b = fftN*lm/2
+      ku = -b + lm*rng
+      # weights
+      weight = 3 + (-1)**(rng+1)
+      weight[0], weight[fftN - 1] = 1, 1
+      # integrands
+      integrand = tf.exp(tf.dtypes.complex(0., tf.cast(-b*rng*du, dtype = tf.float32)))*self.characteristicfunc(iStep, tf.dtypes.complex(tf.cast(u, dtype = tf.float32), -0.5))*1/(u**2 + 0.25)*weight*du/3
+      integral = tf.math.real(ifft(integrand)*fftN)
+      # interpolate
+      spline = interp1d(ku, integral, kind = 'cubic')
+      return X - tf.math.sqrt(X*self.K)*tf.exp(-self.r*(self.T - iStep*self.dt))/np.pi*spline(tf.math.log(X/self.K))
+
+
+    #Go to next step
+    def oneStepFrom(self, iStep, X, gaussJ, Y):
+        return  X*tf.exp((self.r - self.correction)*self.dt + gaussJ) + self.func(Y - self.A(iStep, X))*self.dt 
+    
+    #jumps
+    def jumps(self):
+        gauss = tf.random.normal([self.batchSize], 0, 1)
+        gamma = tf.random.gamma([self.batchSize], self.dt/self.kappa, 1/self.kappa) 
+        return tf.math.multiply(self.theta, gamma) + self.sigJ*tf.sqrt(gamma)*gauss
+
+    #Driver
+    def f(self, Y):
+        return -self.r*Y
+
+    #Payoff 
+    def g(self, X):
+        return tf.maximum(X-self.K, 0) 
