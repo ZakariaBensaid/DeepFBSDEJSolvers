@@ -162,7 +162,6 @@ class VGmodel:
       u = rng*du
       lm = 2*np.pi/B
       b = fftN*lm/2
-      ku = -b + lm*rng
       # weights
       weight = 3 + (-1)**(rng+1)
       weight[0], weight[fftN - 1] = 1, 1
@@ -171,12 +170,8 @@ class VGmodel:
       integral = tf.math.real(ifft(integrand)*fftN)
       # Compute the log of the interpolation point
       log_interp_point = tf.math.log(X/self.K)
-      # Define the wrapped function
-      def wrapped_interp1d(ku, integral, log_interp_point):
-          spline = interp1d(ku, integral, kind='cubic')
-          return spline(log_interp_point)
-      # Use tf.numpy_function to call the wrapped function
-      spline = tf.cast(tf.numpy_function(wrapped_interp1d, [ku, integral, log_interp_point], X.dtype), dtype = tf.float32)
+      # interpolate
+      spline = tfp.math.interp_regular_1d_grid(log_interp_point, -b, -b + lm*(fftN-1) ,y_ref = integral)
       return X - tf.math.sqrt(X*self.K)*tf.exp(-self.r*(self.T - iStep*self.dt))/np.pi*spline
 
 
