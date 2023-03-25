@@ -113,7 +113,7 @@ for method in ['Global', 'SumMultiStep1', 'SumMultiStep2', 'SumLocal1', 'SumLoca
     elif method == 'SumLocalReg':
         solver =  SolverGlobalSumLocalReg(mathModel, kerasModelU , kerasModelGam, lRateReg)
     elif method == 'Osterlee':
-        solver = SolverOsterleeFBSDE(mathModel, kerasModelU , kerasModelGam, lRateOsterlee, coefOsterlee)
+        solver = SolverOsterleeFBSDE(mathModel, kerasModelU , kerasModelGam, lRateLoc, coefOsterlee)
     # train and  get solution
     Y0List=  solver.train(batchSize,batchSize*10, num_epoch,num_epochExt )
     print('Y0',Y0List[-1])
