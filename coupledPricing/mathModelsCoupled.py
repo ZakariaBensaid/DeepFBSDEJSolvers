@@ -169,9 +169,16 @@ class VGmodel:
       # integrands
       integrand = tf.exp(tf.dtypes.complex(0., tf.cast(-b*rng*du, dtype = tf.float32)))*self.characteristicfunc(iStep, tf.dtypes.complex(tf.cast(u, dtype = tf.float32), -0.5))*1/(u**2 + 0.25)*weight*du/3
       integral = tf.math.real(ifft(integrand)*fftN)
-      # interpolate
-      spline = interp1d(ku, integral, kind = 'cubic')
-      return X - tf.math.sqrt(X*self.K)*tf.exp(-self.r*(self.T - iStep*self.dt))/np.pi*spline(tf.math.log(X/self.K))
+      # Compute the log of the interpolation point
+      log_interp_point = tf.math.log(X/self.K)
+      # Define the wrapped function
+      def wrapped_interp1d(ku, integral, log_interp_point):
+          spline = interp1d(ku, integral, kind='cubic')
+          return spline(log_interp_point)
+      # Use tf.numpy_function to call the wrapped function
+      spline = tf.cast(tf.numpy_function(wrapped_interp1d, [ku, integral, log_interp_point], X.dtype), dtype = tf.float32)
+      return X - tf.math.sqrt(X*self.K)*tf.exp(-self.r*(self.T - iStep*self.dt))/np.pi*spline
+
 
 
     #Go to next step
@@ -190,4 +197,4 @@ class VGmodel:
 
     #Payoff 
     def g(self, X):
-        return tf.maximum(X-self.K, 0) 
+        return tf.maximum(X-self.K, 0)
