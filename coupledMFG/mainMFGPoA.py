@@ -109,26 +109,23 @@ QAver = np.tile(np.expand_dims(QAver, axis=-1),[1,rafCoef]).flatten()
 #Parameters
 T  = float(nbDays)
 
-dict_parameters = {'sigma': 0.56, 'sigma_0':0.31, 'theta':0.12, 'h0' : 0, 'h1' :0, 'h2':100, 'A' : 150, 'C' : 80, 'K' : 50, 'pi':0.5, 'p0' :6.159423723, 'p1': 87.4286117, 'f0':0, 'f1': 10**4, 
-                    'R_0' : 2*0.12 , 's0':-0.5, 'alphaTarget':-0.2}
-sig, sig0, theta, h0, h1, h2, A, C, K, pi, p0, p1, f0, f1, R0, S0, alphaTarget = dict_parameters.values()
+dict_parameters = {'sigma': 0.3, 'sigma_0':0.1, 'theta':0.12, 'h0' : 0, 'h1' :0, 'h2': 600, 'A' : 150, 'C' : 80, 'K' : 50, 'R_0' : 2*0.12 , 's0':0, 'alphaTarget':-0.2, 'coeffOU': 7}
+sig, sig0, theta, h0, h1, h2, A, C, K, R0, S0, alphaTarget, coeffOU = dict_parameters.values()
 
 # mathematical model for hY
 ###########################
-mathModel0 = ModelCoupledFBSDE(T, QAver, R0, jumpFactor, A, K, pi, p0, p1, f0, f1, theta,C, S0, h1, h2,sig0, sig, alphaTarget, jumpModel, 1)
+mathModel0 = ModelCoupledFBSDE(T, QAver, R0, jumpFactor, coeffOU, A, K, 0.5, 0, 0, 0, 0, theta,C, S0, h1, h2,sig0, sig, alphaTarget, jumpModel, 1)
 
 #Fixing the trajectory 
 ###########################
 dW0_arr = np.sqrt(mathModel0.dt)*tf.random.normal([nbSimul, mathModel0.N+1])
 dW_arrPlayer1 = np.sqrt(mathModel0.dt)*tf.random.normal([nbSimul, mathModel0.N+1])
 dW_arrPlayer2 = np.sqrt(mathModel0.dt)*tf.random.normal([nbSimul, mathModel0.N+1])
-Q = mathModel0.QAver*tf.exp(-0.5*mathModel0.sig0*mathModel0.sig0*np.arange(mathModel0.N+1)*mathModel0.dt + mathModel0.sig0*dW0_arr)
-if jumpModel == 'stochastic':
-    lam = jumpFactor*(Q)**2
-else:
-    lam = jumpFactor*tf.ones([nbSimul, mathModel0.N+1])
-# number of jump in dt
-dN = tf.random.poisson( [1], lam*mathModel0.dt)[0] 
+dN = np.zeros((nbSimul, mathModel0.N + 1))
+mathModel0.init(nbSimul)
+for istep in range(mathModel0.N + 1):
+  dN[:,istep] = mathModel0.dN()[0]
+  mathModel0.oneStepFrom(dW0_arr[:,istep], 0,0,0,0)
 
 # DL model
 ##########################
@@ -196,8 +193,8 @@ for string, [p0, p1, f0, f1] in dict_cases.items():
   dictPoA = {}
   for pi in listPi:
     #Mathematical models
-    mathModelMFG = ModelCoupledFBSDE(T, QAver, R0,  jumpFactor, A, K, pi, p0, p1, f0, f1, theta,C, S0, h1, h2,sig0, sig, alphaTarget, jumpModel, 1)
-    mathModelMFCagg = ModelCoupledFBSDE(T, QAver, R0,  jumpFactor, A, K, pi, p0, p1, f0, f1, theta,C, S0, h1, h2,sig0, sig, alphaTarget, jumpModel, 2)
+    mathModelMFG = ModelCoupledFBSDE(T, QAver, R0,  jumpFactor, coeffOU, A, K, pi, p0, p1, f0, f1, theta,C, S0, h1, h2,sig0, sig, alphaTarget, jumpModel, 1)
+    mathModelMFCagg = ModelCoupledFBSDE(T, QAver, R0,  jumpFactor, coeffOU, A, K, pi, p0, p1, f0, f1, theta,C, S0, h1, h2,sig0, sig, alphaTarget, jumpModel, 2)
     #Storing MFG and MFCagg
     listMathModel = [mathModelMFG, mathModelMFCagg]
     listSolutionsPlayer1 = []

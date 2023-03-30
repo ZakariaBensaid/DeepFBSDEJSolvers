@@ -1,12 +1,12 @@
 import numpy as np
 import tensorflow as tf
-from scipy.integrate import quad
+
 
 
 
 
 class ModelCoupledFBSDE:
-    def __init__(self, T , QAver,  R0 ,  jumpFactor , A, K, pi, p0, p1, f0, f1, theta,C, S0 , h1, h2, sig0, sig, alphaTarget, jumpModel, coeffEqui):
+    def __init__(self, T , QAver,  R0 ,  jumpFactor, coeffOU, A, K, pi, p0, p1, f0, f1, theta,C, S0 , h1, h2, sig0, sig, alphaTarget, jumpModel, coeffEqui):
         self.T = T
         self.QAver= QAver
         self.R0= R0
@@ -30,6 +30,7 @@ class ModelCoupledFBSDE:
         self.alphaTarget = alphaTarget
         self.jumpModel = jumpModel
         self.coeffEqui = coeffEqui
+        self.coeffOU = coeffOU
         
 
     # initialize
@@ -37,8 +38,6 @@ class ModelCoupledFBSDE:
         self.batchSize = batchSize
         self.hQ = self.QAver[0]*tf.ones([batchSize])
         self.Q = self.QAver[0]*tf.ones([batchSize])
-        self.expHQ = tf.ones([batchSize])
-        self.expQ = tf.ones([batchSize])
         self.R =  self.R0*tf.ones([batchSize])
         self.hS = self.S0*tf.ones([batchSize])
         self.S = self.S0*tf.ones([batchSize])
@@ -63,12 +62,9 @@ class ModelCoupledFBSDE:
         self.S= self.S + self.calpha(hY, Y)*self.dt
         # R evolution
         self.R = self.R +self.dt - tf.where(dN>0, self.R, 0)
-        # update exp terms
-        self.expHQ = self.expHQ*tf.exp(-0.5*self.sig0*self.sig0*self.dt + self.sig0*dW0)
-        self.expQ = self.expQ*tf.exp(-0.5*(self.sig0*self.sig0 + self.sig*self.sig)*self.dt + self.sig0*dW0 + self.sig*dW)
         # update hQ, Q
-        self.hQ = self.QAver[self.iStep+1]*self.expHQ
-        self.Q = self.QAver[self.iStep+1]*self.expQ
+        self.hQ = self.hQ + self.coeffOU*(self.QAver[self.iStep] - self.hQ)*self.dt + self.sig0*tf.sqrt(self.hQ)*dW0
+        self.Q = self.Q + self.coeffOU*(self.QAver[self.iStep] - self.Q)*self.dt + self.sig0*tf.sqrt(self.Q)*dW0 + self.sig*tf.sqrt(self.Q)*dW
         # update step
         self.iStep +=1
             
@@ -76,14 +72,14 @@ class ModelCoupledFBSDE:
     #Compute stochastic alphaTarget
     def calphaTarget(self):
         if self.jumpModel == 'stochastic':
-            return self.alphaTarget*(self.hQ)
+            return self.alphaTarget*(self.QAver[self.iStep])
         return self.alphaTarget*tf.ones([self.batchSize])
 
     # hY  Y value for BSDE
     def calpha_hat(self, hY):
-        kTheta = self.A+(1-self.pi)*self.coeffEqui*self.p1+self.K+self.coeffEqui*self.f1*tf.where(self.R <= self.theta,1.,0.)
-        return -(1/kTheta)*(self.p0 + self.pi*self.p1*self.hQ+ ((1-self.pi)*self.coeffEqui*self.p1 + self.K)*self.hQ + hY + \
-                            (self.f0+self.coeffEqui*self.f1*(self.hQ - self.QAver[self.iStep]- self.calphaTarget()))*tf.where(self.R <= self.theta,1.,0.))
+      kTheta = self.A+(1-self.pi)*self.coeffEqui*self.p1+self.K+self.coeffEqui*self.f1*tf.where(self.R <= self.theta,1.,0.)
+      return -(1/kTheta)*(self.p0 + self.pi*self.p1*self.hQ+ ((1-self.pi)*self.coeffEqui*self.p1 + self.K)*self.hQ + hY + \
+                          (self.f0+self.coeffEqui*self.f1*(self.hQ - self.QAver[self.iStep]- self.calphaTarget()))*tf.where(self.R <= self.theta,1.,0.))
 
     def calpha(self, hY, Y):
       return -(1/(self.A + self.K))*(self.K*self.Q + self.p0 + self.pi*self.p1*self.hQ+ (1-self.pi)*self.coeffEqui*self.p1*(self.hQ +self.calpha_hat(hY)) + Y + \
@@ -103,8 +99,6 @@ class ModelCoupledFBSDE:
     def getProjectedStates( self ):
         return self.iStep*self.dt, self.hQ, self.hS, self.R
 
-    # get  states 
+    # get  states with out time 
     def getAllStates( self ):
         return  self.iStep*self.dt, self.Q, self.S, self.hQ, self.hS, self.R
-
-

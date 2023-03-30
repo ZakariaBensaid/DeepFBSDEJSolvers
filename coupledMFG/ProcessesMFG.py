@@ -1,9 +1,7 @@
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
 import tensorflow as tf
 import numpy as np
-import matplotlib as mpl 
-#mpl.rcParams['animation.ffmpeg_path'] = r'C:\Users\zakbe\OneDrive\Bureau\mfg_tensorflow\mfgdeep-main\ffmpeg.exe'
+
 
 class MFGSolutionsFixedTrajectory:
     def __init__(self, mathModel, kerasModel, method,  dW0_arr, dW_arr, dN, savefig = 'OFF'):
@@ -70,8 +68,8 @@ class MFGSolutionsFixedTrajectory:
                 #next values
                 tensorhY, tensorY =  tensorhYNext, tensorYNext
         else :
-            tensorhY = self.kerasModel.model_hat(self.mathModel.getProjectedStates())[0]
-            tensorY = self.kerasModel.model(self.mathModel.getAllStates())[0]
+            tensorhY, = self.kerasModel.model_hat(self.mathModel.getProjectedStates())
+            tensorY, = self.kerasModel.model(self.mathModel.getAllStates())
             for iStep in range(self.mathModel.N+1):
                 self.Q[:,iStep], self.S[:,iStep], self.hQ[:,iStep], self.hS[:,iStep], self.R[:,iStep] \
                     = [x.numpy() for x in self.mathModel.getAllStates()[1:]]
@@ -93,7 +91,7 @@ class MFGSolutionsFixedTrajectory:
 
     def computeTarget(self, nbSimulations):
         if self.mathModel.jumpModel == 'stochastic':
-            self.alphaTg = self.mathModel.alphaTarget*(self.hQ)
+            self.alphaTg = self.mathModel.alphaTarget*(np.concatenate([[self.QAver]*nbSimulations], axis = 1))
         else :
             self.alphaTg = self.mathModel.alphaTarget*np.ones((nbSimulations, self.mathModel.N+1))
 
@@ -109,6 +107,3 @@ class MFGSolutionsFixedTrajectory:
         #Compute the integral
         cost_integral = np.sum(increment*self.mathModel.dt, axis = 1) + self.mathModel.h1*self.S[:,-1] + self.mathModel.h2*0.5*self.S[:,-1]**2
         return np.mean(cost_integral), np.std(cost_integral)
-
-
-
