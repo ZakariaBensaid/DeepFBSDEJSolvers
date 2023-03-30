@@ -104,7 +104,7 @@ class MFGSolutionsFixedTrajectory:
         increment = self.mathModel.A*0.5*self.alpha**2 + self.mathModel.C*0.5*self.S**2 + self.mathModel.K*0.5*(self.Q + self.alpha)**2 + \
             (self.Q + self.alpha)*(self.mathModel.p0 + self.mathModel.p1*self.mathModel.pi*self.hQ + self.mathModel.p1*(1-self.mathModel.pi)*(self.hQ + self.alpha_hat)) \
                 + (self.R < self.mathModel.theta)*(self.Q - self.meanhQ + self.alpha - self.alphaTg)*(self.mathModel.f0 + self.mathModel.f1*(self.hQ - \
-                    self.mathModel.meanhQ + self.alpha_hat - self.alphaTg))
+                    self.meanhQ + self.alpha_hat - self.alphaTg))
         #Compute the integral
         cost_integral = np.sum(increment*self.mathModel.dt, axis = 1) + self.mathModel.h1*self.S[:,-1] + self.mathModel.h2*0.5*self.S[:,-1]**2
         return np.mean(cost_integral), np.std(cost_integral)
