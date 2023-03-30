@@ -99,17 +99,14 @@ QAverOneDay = np.array([0.26759617, 0.24771933, 0.23588383, 0.221369, 0.21174, 0
   0.347346, 0.3419715, 0.32684, 0.320009, 0.32065767, 0.32586567, 0.31492483, 0.31607417, 0.30411783, 0.29950567,
  0.307519, 0.33259367, 0.375465, 0.45608333, 0.599178,0.70970583, 0.7364855, 0.736731, 0.70612667, 0.67284583,
   0.66692767, 0.64925583, 0.604485, 0.55684567, 0.515597, 0.45097333, 0.3822625, 0.31841833])
-
-
 QAver = np.concatenate([QAverOneDay]*nbDays, axis=-1)
-
 # tile
 QAver = np.tile(np.expand_dims(QAver, axis=-1),[1,rafCoef]).flatten()
+QAver = QAver.astype('float32')
 
 #Parameters
 T  = float(nbDays)
-
-dict_parameters = {'sigma': 0.3, 'sigma_0':0.1, 'theta':0.12, 'h0' : 0, 'h1' :0, 'h2': 600, 'A' : 150, 'C' : 80, 'K' : 50, 'R_0' : 2*0.12 , 's0':0, 'alphaTarget':-0.2, 'coeffOU': 7}
+dict_parameters = {'sigma': 0.3, 'sigma_0':0.1, 'theta':0.12, 'h0' : 0, 'h1' :0, 'h2': 600, 'A' : 150, 'C' : 80, 'K' : 50, 'R_0' : 2*0.12 , 's0':0, 'alphaTarget':-0.2, 'coeffOU': 7.}
 sig, sig0, theta, h0, h1, h2, A, C, K, R0, S0, alphaTarget, coeffOU = dict_parameters.values()
 
 # mathematical model for hY
@@ -123,9 +120,10 @@ dW_arrPlayer1 = np.sqrt(mathModel0.dt)*tf.random.normal([nbSimul, mathModel0.N+1
 dW_arrPlayer2 = np.sqrt(mathModel0.dt)*tf.random.normal([nbSimul, mathModel0.N+1])
 dN = np.zeros((nbSimul, mathModel0.N + 1))
 mathModel0.init(nbSimul)
-for istep in range(mathModel0.N + 1):
-  dN[:,istep] = mathModel0.dN()[0]
+dN[:,0] = mathModel0.dN()[0]
+for istep in range(1, mathModel0.N + 1):
   mathModel0.oneStepFrom(dW0_arr[:,istep], 0,0,0,0)
+  dN[:,istep] = mathModel0.dN()[0]
 
 # DL model
 ##########################
@@ -170,7 +168,8 @@ for j in range(NbSimulation):
   ############################################
   ax[0,1].plot(solutionPlayer1.t*solutionPlayer1.dt*24, solutionPlayer1.hQ[j], label = r'$\hat{Q}$', linewidth=2.2, color = 'dimgray')
   ax[0,1].set_title('intensity')
-  ax[0,1].legend(loc = 2)
+  #ax[0,1].legend(loc = 2)
+  ax[0,1].set(ylabel = r'$\hat{Q}$')
   ax2 = ax[0,1].twinx()
   ax2.plot(solutionPlayer1.t*solutionPlayer1.dt*24, solutionPlayer1.lam[j], label = r'$\lambda$', linestyle = 'dashed', color = 'tab:brown')
   ax2.legend(loc = 1)
@@ -185,6 +184,7 @@ for j in range(NbSimulation):
   plt.show()
   listFiguresPreTrain.append(fig)
 
+#style for plots
 dict_cases = {'with jumps and with dynamic pricing': [ 6.159423723, 87.4286117, 0, 10**4], 'with jumps and without pricing': [0, 0, 0, 10**4], 'without jumps and with pricing' : [6.159423723, 87.4286117, 0, 0]}
 dictFiguresPostTrain = {}
 listPoAfigures = []
@@ -257,19 +257,20 @@ for string, [p0, p1, f0, f1] in dict_cases.items():
       ax[0,0].plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].alphaTg[j] , color='tab:brown', label= r'$\alpha_{tg}$', linestyle = 'dashed')
       #MFG
       ax[0,0].plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].hQ[j] + listSolutionsPlayer1[0].alpha_hat[j] \
-              - listSolutionsPlayer1[0].QAver , label = 'MFG proj.', linewidth=2.2, color = 'dimgray')
+              - listSolutionsPlayer1[0].meanhQ , label = 'MFG proj.', linewidth=2.2, color = 'dimgray')
       ax[0,0].plot(listSolutionsPlayer1[0].t*listSolutionsPlayer1[0].dt*24, listSolutionsPlayer1[0].Q[j] + listSolutionsPlayer1[0].alpha[j]\
-              - listSolutionsPlayer1[0].QAver, label = 'MFG player1', color = 'blue')
+              - listSolutionsPlayer1[0].meanhQ, label = 'MFG player1', color = 'blue')
       ax[0,0].plot(listSolutionsPlayer2[0].t*listSolutionsPlayer2[0].dt*24, listSolutionsPlayer2[0].Q[j] + listSolutionsPlayer2[0].alpha[j]\
-              - listSolutionsPlayer1[0].QAver, label = 'MFG player2', color = 'red')
+              - listSolutionsPlayer1[0].meanhQ, label = 'MFG player2', color = 'red')
       #MFCagg
       ax[0,0].plot(listSolutionsPlayer1[1].t*listSolutionsPlayer1[1].dt*24, listSolutionsPlayer1[1].hQ[j] + listSolutionsPlayer1[1].alpha_hat[j]\
-              - listSolutionsPlayer1[0].QAver, label = 'MFCagg proj.', linestyle='dotted', linewidth=2.2, color = 'dimgray')
+              - listSolutionsPlayer1[0].meanhQ, label = 'MFCagg proj.', linestyle='dotted', linewidth=2.2, color = 'dimgray')
       ax[0,0].plot(listSolutionsPlayer1[1].t*listSolutionsPlayer1[1].dt*24, listSolutionsPlayer1[1].Q[j] + listSolutionsPlayer1[1].alpha[j]\
-              - listSolutionsPlayer1[0].QAver, label = 'MFCagg player1', linestyle='dotted', color = 'blue')
+              - listSolutionsPlayer1[0].meanhQ, label = 'MFCagg player1', linestyle='dotted', color = 'blue')
       ax[0,0].plot(listSolutionsPlayer2[1].t*listSolutionsPlayer2[1].dt*24, listSolutionsPlayer2[1].Q[j] + listSolutionsPlayer2[1].alpha[j]\
-              - listSolutionsPlayer1[0].QAver, label = 'MFCagg player2', linestyle='dotted', color = 'red')
+              - listSolutionsPlayer1[0].meanhQ, label = 'MFCagg player2', linestyle='dotted', color = 'red')
       ax[0,0].title.set_text(r'$\tilde{Q} + \alpha$ (kW) / ' + string  + f' / pi = {pi}')
+      ax[0,0].set_ylim(-0.5,0.5)
       ax[0,0].legend(prop={'size': 8})
       #Consumption after equilibrium
       ############################################
@@ -284,6 +285,7 @@ for string, [p0, p1, f0, f1] in dict_cases.items():
       ax[1,0].plot(listSolutionsPlayer1[1].t*listSolutionsPlayer1[1].dt*24, listSolutionsPlayer1[1].Q[j] + listSolutionsPlayer1[1].alpha[j], label = f'MFCagg player1', linestyle='dotted', color = 'blue')
       ax[1,0].plot(listSolutionsPlayer2[1].t*listSolutionsPlayer2[1].dt*24, listSolutionsPlayer2[1].Q[j] + listSolutionsPlayer2[1].alpha[j], label = f'MFCagg player2', linestyle='dotted', color = 'red')
       ax[1,0].title.set_text(r'$Q + \alpha$ (kW) / ' + string + f' / pi = {pi}')
+      ax[1,0].set_ylim(0.1,0.65)
       ax[1,0].legend(prop={'size': 8})
       #Cumulated deviation
       ##########################################

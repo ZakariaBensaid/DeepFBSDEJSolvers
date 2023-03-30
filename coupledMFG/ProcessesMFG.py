@@ -18,8 +18,6 @@ class MFGSolutionsFixedTrajectory:
         self.dt = self.mathModel.dt
         #theta
         self.theta = self.mathModel.theta
-        #season
-        self.QAver = self.mathModel.QAver
     
 
     def simulateAllProcesses(self, nbSimulations):
@@ -33,6 +31,7 @@ class MFGSolutionsFixedTrajectory:
         self.mathModel.init(nbSimulations)        
         self.R = np.zeros((nbSimulations, self.mathModel.N+1))
         self.hQ = np.zeros((nbSimulations, self.mathModel.N+1))
+        self.meanhQ = np.zeros(self.mathModel.N+1)
         self.Q = np.zeros((nbSimulations, self.mathModel.N+1))
         self.lam = np.zeros((nbSimulations, self.mathModel.N+1))
         self.hS = np.zeros((nbSimulations, self.mathModel.N+1))
@@ -45,6 +44,7 @@ class MFGSolutionsFixedTrajectory:
             for iStep in range(self.mathModel.N+1):
                 self.Q[:,iStep], self.S[:,iStep], self.hQ[:,iStep], self.hS[:,iStep], self.R[:,iStep] \
                     = [x.numpy() for x in self.mathModel.getAllStates()[1:]]
+                self.meanhQ[iStep] = self.mathModel.meanhQ
                 # get back adjoint variables
                 hZ0, hGam = self.kerasModel.model_hat(self.mathModel.getProjectedStates())
                 Z0, Gam, Z = self.kerasModel.model(self.mathModel.getAllStates())
@@ -73,6 +73,7 @@ class MFGSolutionsFixedTrajectory:
             for iStep in range(self.mathModel.N+1):
                 self.Q[:,iStep], self.S[:,iStep], self.hQ[:,iStep], self.hS[:,iStep], self.R[:,iStep] \
                     = [x.numpy() for x in self.mathModel.getAllStates()[1:]]
+                self.meanhQ[iStep] = self.mathModel.meanhQ
                 #Compute alpha
                 self.alpha_hat[:,iStep] = self.mathModel.calpha_hat(tensorhY).numpy()
                 self.alpha[:,iStep] = self.mathModel.calpha(tensorhY, tensorY).numpy()
@@ -91,7 +92,7 @@ class MFGSolutionsFixedTrajectory:
 
     def computeTarget(self, nbSimulations):
         if self.mathModel.jumpModel == 'stochastic':
-            self.alphaTg = self.mathModel.alphaTarget*(np.concatenate([[self.QAver]*nbSimulations], axis = 1))
+            self.alphaTg = self.mathModel.alphaTarget*(np.concatenate([[self.meanhQ]*nbSimulations], axis = 1))
         else :
             self.alphaTg = self.mathModel.alphaTarget*np.ones((nbSimulations, self.mathModel.N+1))
 
@@ -102,8 +103,8 @@ class MFGSolutionsFixedTrajectory:
         #Compute the increment of the integral
         increment = self.mathModel.A*0.5*self.alpha**2 + self.mathModel.C*0.5*self.S**2 + self.mathModel.K*0.5*(self.Q + self.alpha)**2 + \
             (self.Q + self.alpha)*(self.mathModel.p0 + self.mathModel.p1*self.mathModel.pi*self.hQ + self.mathModel.p1*(1-self.mathModel.pi)*(self.hQ + self.alpha_hat)) \
-                + (self.R < self.mathModel.theta)*(self.Q - self.mathModel.QAver + self.alpha - self.alphaTg)*(self.mathModel.f0 + self.mathModel.f1*(self.hQ - \
-                    self.mathModel.QAver + self.alpha_hat - self.alphaTg))
+                + (self.R < self.mathModel.theta)*(self.Q - self.meanhQ + self.alpha - self.alphaTg)*(self.mathModel.f0 + self.mathModel.f1*(self.hQ - \
+                    self.mathModel.meanhQ + self.alpha_hat - self.alphaTg))
         #Compute the integral
         cost_integral = np.sum(increment*self.mathModel.dt, axis = 1) + self.mathModel.h1*self.S[:,-1] + self.mathModel.h2*0.5*self.S[:,-1]**2
         return np.mean(cost_integral), np.std(cost_integral)
