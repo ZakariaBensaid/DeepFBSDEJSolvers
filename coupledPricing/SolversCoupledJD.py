@@ -25,12 +25,11 @@ class SolverGlobalFBSDE(SolverBase):
             X = self.mathModel.init(nbSimul)
             # Target
             Y = self.modelKerasUZ.Y0*tf.ones([nbSimul])
-            # error compensator
             for iStep in range(self.mathModel.N):
-                # increment
+                # BM increment
                 gaussian = tf.random.normal([nbSimul])
                 dW =  np.sqrt(self.mathModel.dt)*gaussian 
-                # jump and compensation
+                # jump 
                 gaussJ  = self.mathModel.jumps()
                 # get  Z, Gam
                 Z = self.modelKerasUZ(tf.stack([iStep*tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))[0]
@@ -86,7 +85,7 @@ class SolverMultiStepFBSDE1():
             # Target
             listOfForward = []
             for iStep in range(self.mathModel.N):
-                # Common and individual noises
+                # BM increment
                 gaussian = tf.random.normal([nbSimul])
                 dW =  np.sqrt(self.mathModel.dt)*gaussian 
                 gaussJ  = self.mathModel.jumps()
@@ -149,7 +148,7 @@ class SolverMultiStepFBSDE2(SolverBase):
             # Target
             listOfForward = []
             for iStep in range(self.mathModel.N):
-                # Common and individual noises
+                # BM increment
                 gaussian = tf.random.normal([nbSimul])
                 dW =  np.sqrt(self.mathModel.dt)*gaussian 
                 gaussJ  = self.mathModel.jumps()
@@ -219,7 +218,7 @@ class SolverSumLocalFBSDE1():
             GamPrev = self.modelKerasUZ(tf.stack([tf.zeros([nbSimul], dtype= tf.float32), X + gaussJ], axis=-1))[0] \
             - self.modelKerasUZ(tf.stack([tf.zeros([nbSimul], dtype= tf.float32), X], axis=-1))[0]
             for iStep in range(self.mathModel.N):
-                # increment
+                # BM increment
                 gaussian = tf.random.normal([nbSimul])
                 dW =  np.sqrt(self.mathModel.dt)*gaussian 
                 # target
@@ -282,7 +281,7 @@ class SolverSumLocalFBSDE2(SolverBase):
             YPrev, Z0Prev= self.modelKerasUZ( tf.stack([tf.zeros([nbSimul], dtype= tf.float32) , X], axis=-1))
             GamPrev = self.modelKerasGam(tf.stack([tf.zeros([nbSimul], dtype= tf.float32), X, gaussJ], axis=-1))[0]
             for iStep in range(self.mathModel.N):
-                # increment
+                # BM increment
                 gaussian = tf.random.normal([nbSimul])
                 dW =  np.sqrt(self.mathModel.dt)*gaussian 
                 # target
@@ -416,7 +415,7 @@ class SolverGlobalMultiStepReg(SolverBase):
                 toAdd =- self.mathModel.dt* self.mathModel.f(Y)
                 for i in range(len(listOfForward)):
                     listOfForward[i] = listOfForward[i] + toAdd
-                # increment
+                # BM increment
                 gaussian = tf.random.normal([nbSimul])
                 dW =  np.sqrt(self.mathModel.dt)*gaussian
                 gaussJ  = self.mathModel.jumps()
@@ -471,7 +470,7 @@ class SolverOsterleeFBSDE(SolverBase):
             X = self.mathModel.init(nbSimul)   
             Y0 = 0                 
             for iStep in range(self.mathModel.N):
-                # increment
+                # BM increment
                 gaussian = tf.random.normal([nbSimul])
                 dW =  np.sqrt(self.mathModel.dt)*gaussian 
                 # jump and compensation
@@ -491,10 +490,10 @@ class SolverOsterleeFBSDE(SolverBase):
             # initialize
             self.mathModel.init(nbSimul)  
             for iStep in range(self.mathModel.N):
-                # increment
+                # BM increment
                 gaussian = tf.random.normal([nbSimul])
                 dW =  np.sqrt(self.mathModel.dt)*gaussian 
-                # jump and compensation
+                # jump 
                 gaussJ  = self.mathModel.jumps()
                 # get back Y, Z, Gam
                 _, Z = self.modelKerasUZ( tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32) , X], axis=-1))

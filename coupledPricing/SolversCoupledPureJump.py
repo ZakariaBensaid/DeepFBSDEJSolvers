@@ -25,9 +25,8 @@ class SolverGlobalFBSDE(SolverBase):
             X = self.mathModel.init(nbSimul)
             # Target
             Y = self.modelKerasGam.Y0*tf.ones([nbSimul])
-            # error compensator
             for iStep in range(self.mathModel.N):
-                # jump and compensation
+                # jumps
                 gaussJ  = self.mathModel.jumps()
                 # get  Gam
                 Gam = self.modelKerasGam(tf.stack([iStep*tf.ones([nbSimul], dtype= tf.float32), X , gaussJ], axis=-1))[0]
@@ -90,7 +89,7 @@ class SolverMultiStepFBSDE1():
                 - self.modelKerasU(tf.stack([iStep* tf.ones([nbSimul], dtype= tf.float32), X], axis=-1))[0] 
                 # target
                 toAdd = - self.mathModel.dt*self.mathModel.f(Y) + Gam - tf.reduce_mean(Gam)
-                #update list and error
+                #update list
                 listOfForward.append(Y)
                 #forward
                 for i in range(len(listOfForward)):
