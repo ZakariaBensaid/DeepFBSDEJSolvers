@@ -8,7 +8,6 @@ from MFGSolvers import SolverGlobalFBSDE, SolverMultiStepFBSDE,SolverSumLocalFBS
 from MFGSolutions import MFGSolutionsFixedTrajectory
 import argparse
 import time
-import matplotlib.style as style 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import sys 
@@ -188,7 +187,8 @@ for j in range(NbSimulation):
     plt.show()
     listFiguresPreTrain.append(fig)
 
-#style for plots
+#Post training plots
+##############################################
 dict_cases = {'with jumps and with dynamic pricing': [ 6.159423723, 87.4286117, 0, 10**4], 'with jumps and without pricing': [0, 0, 0, 10**4], 'without jumps and with pricing' : [6.159423723, 87.4286117, 0, 0]}
 dictFiguresPostTrain = {}
 listPoAfigures = []
@@ -360,8 +360,3 @@ for fig in listPoAfigures:
   pdf.savefig(fig)  
 pdf.close()
 ##########################################################################################################################################
-p = PdfPages('PoA.pdf')
-for fig in listPoAfigures:
-  # and saving the files
-  p.savefig(fig) 
-p.close()

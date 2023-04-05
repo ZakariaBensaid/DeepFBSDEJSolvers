@@ -5,7 +5,6 @@ from Networks import Net_hat, Net, kerasModels
 from MFGModel import ModelCoupledFBSDE
 from MFGSolvers import SolverGlobalFBSDE, SolverMultiStepFBSDE,SolverSumLocalFBSDE, SolverGlobalMultiStepReg, SolverGlobalSumLocalReg, SolverOsterleeFBSDE
 import argparse
-import matplotlib.style as style 
 import matplotlib.pyplot as plt
 import sys 
 
@@ -101,18 +100,6 @@ sig, sig0, theta, h0, h1, h2, A, C, K, pi, p0, p1, f0, f1, R0, S0, alphaTarget =
 ###########################
 mathModel = ModelCoupledFBSDE( T , QAver,   R0,  jumpFactor, A, K, pi, p0, p1, f0, f1, theta,C, S0, h1, h2,sig0, sig, alphaTarget, jumpModel, 1)
 
-#Fixing the trajectory 
-###########################
-dW0_arr = np.sqrt(mathModel.dt)*tf.random.normal([nbSimul, mathModel.N+1])
-dW_arr = np.sqrt(mathModel.dt)*tf.random.normal([nbSimul, mathModel.N+1])
-Q = mathModel.QAver*tf.exp(-0.5*mathModel.sig0*mathModel.sig0*np.arange(mathModel.N+1)*mathModel.dt + mathModel.sig0*dW0_arr)
-if jumpModel == 'stochastic':
-    lam = jumpFactor*mathModel0.jumpFactor*(Q)**2
-else:
-    lam = jumpFactor*tf.ones([nbSimul])
-# number of jump in dt
-dN = tf.random.poisson( [1], lam*mathModel.dt)[0] 
-
 # DL model
 ###########################
 if activation_hat == 'tanh':
@@ -125,8 +112,6 @@ if activation == 'tanh':
 elif activation == 'relu':
     activ = tf.nn.relu
 
-#style for plots
-style.use('ggplot')
 # Storing all methods
 ############################ 
 listKeras = []
