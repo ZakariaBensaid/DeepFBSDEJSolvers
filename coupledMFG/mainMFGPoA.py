@@ -5,7 +5,7 @@ import os
 from Networks import Net_hat, Net, kerasModels
 from MFGModel import ModelCoupledFBSDE
 from MFGSolvers import SolverGlobalFBSDE, SolverMultiStepFBSDE,SolverSumLocalFBSDE, SolverGlobalMultiStepReg, SolverGlobalSumLocalReg, SolverOsterleeFBSDE
-from PlotsMFG import MFGSolutionsFixedTrajectory
+from MFGSolutions import MFGSolutionsFixedTrajectory
 import argparse
 import time
 import matplotlib.style as style 
