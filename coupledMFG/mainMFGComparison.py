@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 import os
 from Networks import Net_hat, Net, kerasModels
-from Models import ModelCoupledFBSDE
+from MFGModel import ModelCoupledFBSDE
 from MFGSolvers import SolverGlobalFBSDE, SolverMultiStepFBSDE,SolverSumLocalFBSDE, SolverGlobalMultiStepReg, SolverGlobalSumLocalReg, SolverOsterleeFBSDE
 from PlotsMFG import MFGSolutionsFixedTrajectory
 import argparse

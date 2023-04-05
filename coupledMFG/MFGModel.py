@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 
 class ModelCoupledFBSDE:
-    def __init__(self, T , QAver,  R0 ,  jumpFactor, coeffOU, A, K, pi, p0, p1, f0, f1, theta,C, S0 , h1, h2, sig0, sig, alphaTarget, jumpModel, coeffEqui):
+    def __init__(self, T , QAver,  R0 ,  jumpFactor, alpha, beta, coeffOU, A, K, pi, p0, p1, f0, f1, theta,C, S0 , h1, h2, sig0, sig, alphaTarget, jumpModel, coeffEqui):
         self.T = T
         self.QAver= QAver
         self.R0= R0
@@ -27,6 +27,8 @@ class ModelCoupledFBSDE:
         self.jumpModel = jumpModel
         self.coeffEqui = coeffEqui
         self.coeffOU = coeffOU
+        self.alpha = alpha
+        self.beta = beta
         
 
     # initialize
@@ -45,7 +47,7 @@ class ModelCoupledFBSDE:
     def dN(self):
         # rate of jumps
         if self.jumpModel == 'stochastic':
-            self.lam = self.jumpFactor*(self.hQ)**2
+            self.lam = self.beta*(tf.exp(self.alpha*self.hQ) - 1)
         else:
             self.lam = self.jumpFactor*tf.ones([self.batchSize])
         # number of jump in dt
@@ -54,19 +56,20 @@ class ModelCoupledFBSDE:
 
     # one steps
     def oneStepFrom(self, dW0, dW, dN , hY, Y):
+        # update step
+        self.iStep += 1
         # update S
         self.hS = self.hS + self.calpha_hat(hY)*self.dt
         self.S = self.S + self.calpha(hY, Y)*self.dt
         # R evolution
         self.R = self.R +self.dt - tf.where(dN>0, self.R, 0)
-        # update hQ, Q
-        self.hQ = self.hQ + self.coeffOU*(self.QAver[self.iStep] - self.hQ)*self.dt + self.sig0*tf.sqrt(self.hQ)*dW0
-        self.Q = self.Q + self.coeffOU*(self.QAver[self.iStep] - self.Q)*self.dt + self.sig0*tf.sqrt(self.Q)*dW0 + self.sig*tf.sqrt(self.Q)*dW
-        # update step
-        self.iStep += 1
         # update mean hQ
         self.meanhQ = tf.exp(-self.coeffOU*tf.cast(self.iStep, dtype = tf.float32)*self.dt)*QAver[0] + self.coeffOU*tf.reduce_sum(\
                                                                                                 QAver[:self.iStep]*tf.exp(self.coeffOU*(tf.range(self.iStep, dtype = tf.float32) - tf.cast(self.iStep, dtype = tf.float32))*self.dt)*self.dt)
+        # update hQ, Q
+        self.hQ = self.hQ + self.coeffOU*(self.QAver[self.iStep] - self.hQ)*self.dt + self.sig0*dW0
+        self.Q = self.Q + self.coeffOU*(self.QAver[self.iStep] - self.Q)*self.dt + self.sig0*dW0 + self.sig*dW
+
             
     # compute control  hAlpha  taking uncertainties at the current state
     #Compute stochastic alphaTarget
