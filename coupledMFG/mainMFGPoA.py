@@ -321,11 +321,9 @@ for string, [p0, p1, f0, f1] in dict_cases.items():
     #Compute Price of Anarchy
     #MFG 0 in list
     listSolutionsPlayer1[0].simulateAllProcesses(nbSimul)
-    listSolutionsPlayer1[0].computeTarget(nbSimul)
     MFGPlayer, stdMFGPlayer = listSolutionsPlayer1[0].objectiveFunction()
     #MFCagg 1 in list
     listSolutionsPlayer1[1].simulateAllProcesses(nbSimul)
-    listSolutionsPlayer1[1].computeTarget(nbSimul)
     MFCaggPlayer, stdMFCaggPlayer = listSolutionsPlayer1[1].objectiveFunction()  
     #####################################
     PoA = MFGPlayer / MFCaggPlayer 
