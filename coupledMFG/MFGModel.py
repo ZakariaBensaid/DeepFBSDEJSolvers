@@ -88,7 +88,7 @@ class ModelCoupledFBSDE:
       return -(1/(self.A + self.K))*(self.K*self.Q + self.p0 + self.pi*self.p1*self.hQ+ (1-self.pi)*self.coeffEqui*self.p1*(self.hQ +self.calpha_hat(hY)) + Y + \
           (self.f0+self.coeffEqui*self.f1*(self.hQ - self.meanhQ + self.calpha_hat(hY) - self.calphaTarget()))*tf.where(self.R <= self.theta,1.,0.))
 
-    # driver as function of Y
+    # FBSDE driver
     def f(self, U):
         return U*self.C
 
