@@ -15,8 +15,8 @@ parser.add_argument('--nbLayer', type=int, default=2)
 parser.add_argument('--nEpochExt', type=int, default=100)
 parser.add_argument('--nEpoch', type=int, default=100)
 parser.add_argument('--batchSize',  type=int, default=10**4)
-parser.add_argument('--lRateY0',type=float, default =0.003)
-parser.add_argument('--lRateLoc',type=float, default =0.0003)
+parser.add_argument('--lRateY0',type=float, default =0.0007)
+parser.add_argument('--lRateLoc',type=float, default =0.0005)
 parser.add_argument('--lRateReg',type=float, default =0.0003)
 parser.add_argument('--activation',  type= str, default="tanh")
 parser.add_argument('--coefOsterlee', type= float, default = 5)
@@ -120,7 +120,7 @@ for method in ['Global', 'SumMultiStep1', 'SumMultiStep2', 'SumLocal1', 'SumLoca
     elif method == 'SumLocalReg':
         solver =  SolverGlobalSumLocalReg(mathModel, kerasModelUZ , kerasModelGam, lRateReg)
     elif method == 'Osterlee':
-        solver = SolverOsterleeFBSDE(mathModel, kerasModelUZ , kerasModelGam, lRateOsterlee, coefOsterlee)
+        solver = SolverOsterleeFBSDE(mathModel, kerasModelUZ , kerasModelGam, lRateReg, coefOsterlee)
     # train and  get solution
     Y0List=  solver.train(batchSize,batchSize*10, num_epoch,num_epochExt )
     print('Y0',Y0List[-1])
