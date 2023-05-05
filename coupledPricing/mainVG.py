@@ -3,7 +3,7 @@ import tensorflow as tf
 import os
 from Networks import Net
 from pricingModels import VGmodel
-from SolversPureJump import SolverGlobalFBSDE, SolverMultiStepFBSDE1, SolverMultiStepFBSDE2, SolverSumLocalFBSDE1, SolverSumLocalFBSDE2, SolverGlobalMultiStepReg, SolverGlobalSumLocalReg, SolverOsterleeFBSDE
+from SolversPureJump import SolverGlobalFBSDE, SolverMultiStepFBSDE1, SolverMultiStepFBSDE2, SolverSumLocalFBSDE1, SolverSumLocalFBSDE2, SolverGlobalMultiStepReg, SolverGlobalSumLocalReg
 import argparse
 import matplotlib.pyplot as plt
 import sys 
@@ -19,7 +19,6 @@ parser.add_argument('--lRateY0',type=float, default =0.003)
 parser.add_argument('--lRateLoc',type=float, default =0.0005)
 parser.add_argument('--lRateReg',type=float, default =0.0005)
 parser.add_argument('--activation',  type= str, default="tanh")
-parser.add_argument('--coefOsterlee', type= float, default = 1)
 parser.add_argument('--aLin', type= float, default = 0.1)
     
 args = parser.parse_args()
@@ -45,8 +44,6 @@ if activation not in ['tanh', 'relu']:
     print(activation, 'is invalid. Please choose tanh or relu.')
     sys.exit(0)
 print('activation', activation)
-coefOsterlee = args.coefOsterlee
-print('Osterlee coefficient', coefOsterlee)
 aLin = args.aLin
 print('Linear coupling forward backward', aLin)
 # Layers
@@ -76,7 +73,7 @@ print('VG real price', Realprice)
 listLoss = []
 listProcesses = []
 fig, ax = plt.subplots(figsize=(10, 6))
-for method in ['Global', 'SumMultiStep1', 'SumMultiStep2', 'SumLocal1', 'SumLocal2', 'SumLocalReg', 'SumMultiStepReg', 'Osterlee']:
+for method in ['Global', 'SumMultiStep1', 'SumMultiStep2', 'SumLocal1', 'SumLocal2', 'SumLocalReg', 'SumMultiStepReg']:
 #for method in ['SumMultiStep1']:
     # math model
     ##########################
@@ -112,8 +109,6 @@ for method in ['Global', 'SumMultiStep1', 'SumMultiStep2', 'SumLocal1', 'SumLoca
         solver = SolverGlobalMultiStepReg(mathModel, kerasModelU , kerasModelGam, lRateReg)
     elif method == 'SumLocalReg':
         solver =  SolverGlobalSumLocalReg(mathModel, kerasModelU , kerasModelGam, lRateReg)
-    elif method == 'Osterlee':
-        solver = SolverOsterleeFBSDE(mathModel, kerasModelU , kerasModelGam, lRateLoc, coefOsterlee)
     # train and  get solution
     Y0List=  solver.train(batchSize,batchSize*10, num_epoch,num_epochExt )
     print('Y0',Y0List[-1])

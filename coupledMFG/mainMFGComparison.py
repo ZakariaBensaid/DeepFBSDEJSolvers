@@ -3,7 +3,7 @@ import tensorflow as tf
 import os
 from Networks import Net_hat, Net, kerasModels
 from MFGModel import ModelCoupledFBSDE
-from MFGSolvers import SolverGlobalFBSDE, SolverMultiStepFBSDE,SolverSumLocalFBSDE, SolverGlobalMultiStepReg, SolverGlobalSumLocalReg, SolverOsterleeFBSDE
+from MFGSolvers import SolverGlobalFBSDE, SolverMultiStepFBSDE,SolverSumLocalFBSDE, SolverGlobalMultiStepReg, SolverGlobalSumLocalReg
 import argparse
 import matplotlib.pyplot as plt
 import sys 
@@ -28,7 +28,6 @@ parser.add_argument('--couplage', type= str, default = 'ON')
 parser.add_argument('--jumpModel', type= str, default = 'stochastic')
 parser.add_argument('--activation_hat',  type= str, default="tanh")
 parser.add_argument('--activation',  type= str, default="tanh")
-parser.add_argument('--coefOsterlee', type= float, default = 100)
 parser.add_argument('--nbSimulation', type= int, default = 10**5)
     
 args = parser.parse_args()
@@ -73,8 +72,6 @@ if activation not in ['tanh', 'relu']:
     print(activation, 'is invalid. Please choose tanh or relu.')
     sys.exit(0)
 print('activation', activation)
-coefOsterlee = args.coefOsterlee
-print('Osterlee coefficient', coefOsterlee)
 nbSimul = args.nbSimulation
 print('number of trajectories', nbSimul)
 # Layers
@@ -117,11 +114,11 @@ elif activation == 'relu':
 listKeras = []
 listhY0List = []
 listY0List = []
-for method in ['Global', 'SumMultiStep', 'SumLocal', 'SumLocalReg', 'SumMultiStepReg', 'Osterlee']:    
+for method in ['Global', 'SumMultiStep', 'SumLocal', 'SumLocalReg', 'SumMultiStepReg']:    
     #method
     if method in ['SumMultiStepReg', 'SumLocalReg']:
         kerasModel = kerasModels(Net_hat, Net, method, 1, 1,layerSize_hat, layerSize, activation_hat, activation)
-    elif method in ['SumMultiStep', 'SumLocal', 'Osterlee']:
+    elif method in ['SumMultiStep', 'SumLocal']:
         kerasModel = kerasModels(Net_hat, Net, method, 3, 4,layerSize_hat, layerSize, activation_hat, activation)
     else:
         kerasModel = kerasModels(Net_hat, Net, method, 2, 3,layerSize_hat, layerSize, activation_hat, activation)
@@ -136,8 +133,6 @@ for method in ['Global', 'SumMultiStep', 'SumLocal', 'SumLocalReg', 'SumMultiSte
         solver = SolverGlobalMultiStepReg(mathModel,kerasModel, lRateReg, couplage)
     elif method == 'SumLocalReg':
         solver =  SolverGlobalSumLocalReg(mathModel,kerasModel, lRateReg, couplage)
-    elif method == 'Osterlee':
-        solver = SolverOsterleeFBSDE(mathModel,kerasModel, lRateLoc, couplage, coefOsterlee) 
     # train and  get solution
     ############################
     hY0List, Y0List=  solver.train(batchSize,batchSize*10, num_epoch,num_epochExt )
@@ -149,7 +144,7 @@ for method in ['Global', 'SumMultiStep', 'SumLocal', 'SumLocalReg', 'SumMultiSte
 #Plots
 #############################
 fig, ax = plt.subplots()
-for k, method in enumerate(['Global', 'SumMultiStep', 'SumLocal', 'SumLocalReg', 'SumMultiStepReg', 'Osterlee']):
+for k, method in enumerate(['Global', 'SumMultiStep', 'SumLocal', 'SumLocalReg', 'SumMultiStepReg']):
     ax.plot(listhY0List[k], label = f'{method}')
 plt.xlabel('epochs')
 plt.ylabel(r'$\hat{Y}_{0}$')
@@ -157,7 +152,7 @@ plt.legend(prop={'size': 5})
 plt.show()
 ############################
 fig, ax = plt.subplots()
-for k, method in enumerate(['Global', 'SumMultiStep', 'SumLocal', 'SumLocalReg', 'SumMultiStepReg', 'Osterlee']):
+for k, method in enumerate(['Global', 'SumMultiStep', 'SumLocal', 'SumLocalReg', 'SumMultiStepReg']):
   ax.plot(listY0List[k], label = f'{method}')
 plt.xlabel('epochs')
 plt.ylabel(r'$Y_{0}$')

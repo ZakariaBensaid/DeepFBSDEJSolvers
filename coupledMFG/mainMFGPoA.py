@@ -4,7 +4,7 @@ import tensorflow as tf
 import os
 from Networks import Net_hat, Net, kerasModels
 from MFGModel import ModelCoupledFBSDE
-from MFGSolvers import SolverGlobalFBSDE, SolverMultiStepFBSDE,SolverSumLocalFBSDE, SolverGlobalMultiStepReg, SolverGlobalSumLocalReg, SolverOsterleeFBSDE
+from MFGSolvers import SolverGlobalFBSDE, SolverMultiStepFBSDE,SolverSumLocalFBSDE, SolverGlobalMultiStepReg, SolverGlobalSumLocalReg
 from MFGSolutions import MFGSolutionsFixedTrajectory
 import argparse
 import time
@@ -34,7 +34,6 @@ parser.add_argument('--jumpModel', type= str, default = 'stochastic')
 parser.add_argument('--activation_hat',  type= str, default="tanh")
 parser.add_argument('--activation',  type= str, default="tanh")
 parser.add_argument('--method', type=str, default="Global")
-parser.add_argument('--coefOsterlee', type= float, default = 1)
     
 args = parser.parse_args()
 print("Args ", args)
@@ -83,9 +82,6 @@ if method not in ['Global', "SumMultiStep", "SumLocal", 'SumMultiStepReg', 'SumL
     print(method, 'is invalid. Please choose Global or SumMultiStep or SumLocal or SumMultiStepReg or SumLocalReg or Osterlee')
     sys.exit(0)
 print("METHOD", method)
-coefOsterlee = args.coefOsterlee
-if method == 'Osterlee':
-    print('Osterlee coefficient', coefOsterlee)
 
 #Number of simulations
 nbSimul = 10**5
@@ -224,8 +220,6 @@ for string, [p0, p1, f0, f1] in dict_cases.items():
             solver = SolverGlobalMultiStepReg(mathModel,kerasModel, lRateReg, couplage)
         elif method == 'SumLocalReg':
             solver =  SolverGlobalSumLocalReg(mathModel,kerasModel, lRateReg, couplage)
-        elif method == 'Osterlee':
-            solver = SolverOsterleeFBSDE(mathModel,kerasModel, lRateLoc, couplage, coefOsterlee) 
         #train and  get solution
         hY0List, Y0List=  solver.train(batchSize,batchSize*10, num_epoch,num_epochExt)
         #Plotting
