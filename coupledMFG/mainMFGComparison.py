@@ -89,13 +89,9 @@ QAver = np.concatenate([QAverOneDay]*nbDays, axis=-1)
 # tile
 QAver = np.tile(np.expand_dims(QAver, axis=-1),[1,rafCoef]).flatten()
 T  = float(nbDays)
-dict_parameters = {'sigma': 0.56, 'sigma_0':0.31, 'theta':0.12, 'h0' : 0, 'h1' :0, 'h2':100, 'A' : 150, 'C' : 80, 'K' : 50, 'pi':0.5, 'p0' :6.159423723, 'p1': 87.4286117, 'f0':0, 'f1': 10**4, 
-                    'R_0' : 2*0.12 , 's0':-0.5, 'alphaTarget':-0.2}
-sig, sig0, theta, h0, h1, h2, A, C, K, pi, p0, p1, f0, f1, R0, S0, alphaTarget = dict_parameters.values()
-
-# mathematical model for hY
-###########################
-mathModel = ModelCoupledFBSDE( T , QAver,   R0,  jumpFactor, A, K, pi, p0, p1, f0, f1, theta,C, S0, h1, h2,sig0, sig, alphaTarget, jumpModel, 1)
+dict_parameters = {'sigma': 0.3, 'sigma_0':0.1, 'theta':0.12, 'h0' : 0, 'h1' :0, 'h2': 600, 'A' : 150, 'C' : 80, 'K' : 50, 'R_0' : 2*0.12 , 's0':0, 'alphaTarget':-0.2, 'coeffOU': 5., 'alpha':30}
+sig, sig0, theta, h0, h1, h2, A, C, K, R0, S0, alphaTarget, coeffOU, alpha = dict_parameters.values()
+beta = np.exp(-0.5*alpha)
 
 # DL model
 ###########################
@@ -109,16 +105,20 @@ if activation == 'tanh':
 elif activation == 'relu':
     activ = tf.nn.relu
 
+pi, p0, p1, f0, f1 = 0.1, 6.159423723, 87.4286117, 0, 10**4
+#Mathematical models
+mathModel = ModelCoupledFBSDE(T, QAver, R0,  jumpFactor, alpha, beta, coeffOU, A, K, pi, p0, p1, f0, f1, theta,C, S0, h1, h2,sig0, sig, alphaTarget, jumpModel, 1)
 # Storing all methods
-############################ 
+############################
 listKeras = []
 listhY0List = []
 listY0List = []
-for method in ['Global', 'SumMultiStep', 'SumLocal', 'SumLocalReg', 'SumMultiStepReg']:    
+for method in ['Global', 'SumMultiStep', 'SumLocal', 'SumLocalReg', 'SumMultiStepReg']:
+#for method in ['Global']:
     #method
     if method in ['SumMultiStepReg', 'SumLocalReg']:
         kerasModel = kerasModels(Net_hat, Net, method, 1, 1,layerSize_hat, layerSize, activation_hat, activation)
-    elif method in ['SumMultiStep', 'SumLocal']:
+    elif method in ['SumMultiStep', 'SumLocal', 'Osterlee']:
         kerasModel = kerasModels(Net_hat, Net, method, 3, 4,layerSize_hat, layerSize, activation_hat, activation)
     else:
         kerasModel = kerasModels(Net_hat, Net, method, 2, 3,layerSize_hat, layerSize, activation_hat, activation)
@@ -126,16 +126,16 @@ for method in ['Global', 'SumMultiStep', 'SumLocal', 'SumLocalReg', 'SumMultiSte
     if method == "Global":
         solver = SolverGlobalFBSDE(mathModel,kerasModel, lRateY0, couplage)
     elif method == "SumMultiStep":
-        solver= SolverMultiStepFBSDE(mathModel,kerasModel, lRateLoc, couplage)
+        solver= SolverMultiStepFBSDE(mathModel,kerasModel, lRateReg, couplage)
     elif method == "SumLocal":
         solver=  SolverSumLocalFBSDE(mathModel,kerasModel, lRateLoc, couplage)
     elif method == 'SumMultiStepReg':
         solver = SolverGlobalMultiStepReg(mathModel,kerasModel, lRateReg, couplage)
     elif method == 'SumLocalReg':
-        solver =  SolverGlobalSumLocalReg(mathModel,kerasModel, lRateReg, couplage)
+        solver =  SolverGlobalSumLocalReg(mathModel,kerasModel, lRateLoc, couplage)
     # train and  get solution
     ############################
-    hY0List, Y0List=  solver.train(batchSize,batchSize*10, num_epoch,num_epochExt )
+    hY0List, Y0List =  solver.train(batchSize,batchSize*10, num_epoch,num_epochExt )
     listhY0List.append(hY0List)
     listY0List.append(Y0List)
     # Storing the weights
@@ -143,18 +143,19 @@ for method in ['Global', 'SumMultiStep', 'SumLocal', 'SumLocalReg', 'SumMultiSte
     listKeras.append(kerasModel)
 #Plots
 #############################
-fig, ax = plt.subplots()
+listhY0List = np.loadtxt('hY0List.csv', delimiter=',')
+listY0List = np.loadtxt('Y0List.csv', delimiter=',')
+fig, ax = plt.subplots(nrows = 1, ncols = 2, figsize=(12, 4))
 for k, method in enumerate(['Global', 'SumMultiStep', 'SumLocal', 'SumLocalReg', 'SumMultiStepReg']):
-    ax.plot(listhY0List[k], label = f'{method}')
-plt.xlabel('epochs')
-plt.ylabel(r'$\hat{Y}_{0}$')
-plt.legend(prop={'size': 5})
-plt.show()
-############################
-fig, ax = plt.subplots()
-for k, method in enumerate(['Global', 'SumMultiStep', 'SumLocal', 'SumLocalReg', 'SumMultiStepReg']):
-  ax.plot(listY0List[k], label = f'{method}')
-plt.xlabel('epochs')
-plt.ylabel(r'$Y_{0}$')
+    ax[0].plot(listhY0List[k], label = f'{method}')
+    ax[0].set(ylabel = r'$\hat{Y}_{0}$')
+    ax[0].set_title('convergence of methods')
+    ax[0].legend(prop={'size': 5})
+    ax[1].plot(listY0List[k], label = f'{method}')
+    ax[1].set(ylabel = r'$Y_{0}$')
+    ax[1].set_title('convergence of methods')
+    ax[1].legend(prop={'size': 5})
+for ax in ax.flat:
+  ax.set(xlabel = 'epochs')
 plt.legend(prop={'size': 5})
 plt.show()
