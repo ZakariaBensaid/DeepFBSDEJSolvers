@@ -101,7 +101,7 @@ QAver = QAver.astype('float32')
 
 #Parameters
 T  = float(nbDays)
-dict_parameters = {'sigma': 0.3, 'sigma_0':0.1, 'theta':0.12, 'h0' : 0, 'h1' :0, 'h2': 600, 'A' : 150, 'C' : 80, 'K' : 50, 'R_0' : 2*0.12 , 's0':0, 'alphaTarget':-0.2, 'coeffOU': 7.}
+dict_parameters = {'sigma': 0.3, 'sigma_0':0.1, 'theta':0.12, 'h0' : 0, 'h1' :0, 'h2': 600, 'A' : 150, 'C' : 80, 'K' : 50, 'R_0' : 2*0.12 , 's0':0, 'alphaTarget':-0.2, 'coeffOU': 5.}
 sig, sig0, theta, h0, h1, h2, A, C, K, R0, S0, alphaTarget, coeffOU = dict_parameters.values()
 
 # mathematical model for hY
