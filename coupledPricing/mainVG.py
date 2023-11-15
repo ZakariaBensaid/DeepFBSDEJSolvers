@@ -10,14 +10,14 @@ import sys
 
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 parser = argparse.ArgumentParser()
-parser.add_argument('--nbNeuron', type=int, default=20)
+parser.add_argument('--nbNeuron', type=int, default=21)
 parser.add_argument('--nbLayer', type=int, default=2)
-parser.add_argument('--nEpochExt', type=int, default=100)
-parser.add_argument('--nEpoch', type=int, default=50)
-parser.add_argument('--batchSize',  type=int, default=10**3)
-parser.add_argument('--lRateY0',type=float, default =0.003)
-parser.add_argument('--lRateLoc',type=float, default =0.0005)
-parser.add_argument('--lRateReg',type=float, default =0.0005)
+parser.add_argument('--nEpochExt', type=int, default=120)
+parser.add_argument('--nEpoch', type=int, default=100)
+parser.add_argument('--batchSize',  type=int, default=10)
+parser.add_argument('--lRateY0',type=float, default =0.0005)
+parser.add_argument('--lRateLoc',type=float, default =0.0003)
+parser.add_argument('--lRateReg',type=float, default =0.00015)
 parser.add_argument('--activation',  type= str, default="tanh")
 parser.add_argument('--aLin', type= float, default = 0.1)
     

@@ -10,13 +10,13 @@ import sys
 
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 parser = argparse.ArgumentParser()
-parser.add_argument('--nbNeuron', type=int, default=20)
+parser.add_argument('--nbNeuron', type=int, default=21)
 parser.add_argument('--nbLayer', type=int, default=2)
-parser.add_argument('--nEpochExt', type=int, default=100)
+parser.add_argument('--nEpochExt', type=int, default=120)
 parser.add_argument('--nEpoch', type=int, default=100)
-parser.add_argument('--batchSize',  type=int, default=10**4)
-parser.add_argument('--lRateY0',type=float, default =0.0007)
-parser.add_argument('--lRateLoc',type=float, default =0.0005)
+parser.add_argument('--batchSize',  type=int, default=10)
+parser.add_argument('--lRateY0',type=float, default =0.0004)
+parser.add_argument('--lRateLoc',type=float, default =0.0003)
 parser.add_argument('--lRateReg',type=float, default =0.0003)
 parser.add_argument('--activation',  type= str, default="tanh")
 parser.add_argument('--aLin', type= float, default = 0.1)
@@ -54,7 +54,7 @@ print('Limit Power Series', limit)
 layerSize = nbNeuron*np.ones((nbLayer,), dtype=np.int32) 
 # parameter models
 ######################################
-dict_parameters = {'T':1 , 'N':50, 'r':0.1, 'sig': 0.3, 'lam':1, 'muJ': 0., 'sigJ': 0.2, 'K': 0.9, 'x0': 1}
+dict_parameters = {'T':1 , 'N':50, 'r':0.1, 'sig': 0.3, 'lam':3, 'muJ': 0., 'sigJ': 0.2, 'K': 0.9, 'x0': 1}
 T, N, r, sig, lam, muJ, sigJ, K, x0 = dict_parameters.values()
 #Couplage function
 def func(x):
