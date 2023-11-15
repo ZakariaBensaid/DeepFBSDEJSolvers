@@ -26,14 +26,15 @@ We welcome contributions to this project. If you have suggestions or improvement
 
 
 ## Reference
-If you use our code in your research, please cite our paper. [@article{alasseur2023deep,
+If you use our code in your research, please cite our paper as follows: 
+@article{alasseur2023deep,
   title={Deep Learning Algorithms for FBSDEs with Jumps: Applications to Option Pricing and a MFG Model for Smart Grids},
   author={Alasseur, Clemence and Bensaid, Zakaria and Dumitrescu, Roxana and Warin, Xavier},
-  note={Preprint available November 2023}
-}]
+  note={Preprint November 2023}
+}
 
 ## Contact
-For questions or collaboration requests, please contact [Your Contact Information].
+For questions or collaboration requests, please contact the authors of the paper.
 
 ## Acknowledgments
 We would like to thank all contributors, funders, and supporters of this project.
