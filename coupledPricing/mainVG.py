@@ -51,7 +51,7 @@ print('Linear coupling forward backward', aLin)
 layerSize = nbNeuron*np.ones((nbLayer,), dtype=np.int32) 
 # parameters model
 ######################################
-dict_parameters = {'T':1, 'N':50, 'r':0.4, 'theta' : -0.1, 'kappa': 0.3, 'sigJ': 0.2, 'K': 1, 'x0': 1}
+dict_parameters = {'T':1, 'N':30, 'r':0.1, 'theta' : -0.1, 'kappa': 0.1, 'sigJ': 0.2, 'K': 1, 'x0': 1}
 T, N, r, theta, kappa, sigmaJ, K, x0 = dict_parameters.values()
 #Couplage function
 def func(x):
