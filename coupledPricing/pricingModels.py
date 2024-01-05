@@ -51,7 +51,7 @@ class MertonJumpModel:
 
     #Go to next step
     def oneStepFrom(self, iStep, X, dW, gaussJ, Y):
-        return  X*tf.exp((self.r - 0.5*self.sig*self.sig - self.lam*(tf.exp(self.muJ  + self.sigJ*self.sigJ*0.5) - 1))*self.dt + self.sig*dW + gaussJ) #+ self.func(Y - self.A(iStep,X))*self.dt
+        return  X*tf.exp((self.r - 0.5*self.sig*self.sig - self.lam*(tf.exp(self.muJ  + self.sigJ*self.sigJ*0.5) - 1))*self.dt + self.sig*dW + gaussJ) + self.func(Y - self.A(iStep,X))*self.dt
 
     #sum of jumps
     def jumps(self, batchSize):
