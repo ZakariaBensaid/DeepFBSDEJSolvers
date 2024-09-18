@@ -5,7 +5,7 @@ In this repository, we present the code accompanying our paper titled "Deep Lear
 
 ## Contents
 - `coupledMFG`: This directory contains the codes for MFG solvers, the code for the mathematical mean field game model, the neural networks and scripts to plot and compute the price of anarchy.
-- `coupledPricing`: This directory houses codes for Pricing models solvers, including two different pricing models (Merton jump and Variance Gamma), the neural networks and a main script to compare all the algorithms.
+- `coupledPricing`: This directory contains the codes for Pricing solvers, including two different pricing models (Merton jump and Variance Gamma), the neural networks and a main script to compare all the algorithms.
 
 ## Dependencies
 This project depends on the following Python packages:
