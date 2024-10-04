@@ -9,7 +9,7 @@ In this repository, we present the code accompanying our paper titled "Deep Lear
 
 ## Dependencies
 This project depends on the following Python packages:
-- TensorFlow (GPU or CPU)
+- TensorFlow (GPU or CPU) version 2.10.0 and Tensorflow_probability version 0.17.0
 - NumPy
 - SciPy
 
